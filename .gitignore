@@ -1,0 +1,62 @@
+# Python caches and virtual environments
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+env/
+
+# Node / frontend generated files
+frontend/node_modules/
+node_modules/
+frontend/dist/
+dist/
+build/
+
+# Environment files
+.env
+.env.*
+frontend/.env
+frontend/.env.*
+!.env.example
+!frontend/.env.example
+!frontend/.env.production.example
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local analysis, audits, scratch, and generated reports
+analysis/
+scratch/
+comparison/
+output/
+cutoff_pdfs/
+
+# Browser and ngrok temporary files
+analysis/chrome-redteam-profile/
+ngrok*.log
+ngrok-demo.yml
+.ngrok2/
+
+# Temporary exports
+*.tmp
+*.temp
+*.bak
+*.backup
+*.zip
+*.tar
+*.tar.gz

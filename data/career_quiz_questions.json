@@ -1,0 +1,77 @@
+[
+  {
+    "id": "coding",
+    "question": "Do you enjoy coding?",
+    "scale": "1-5"
+  },
+  {
+    "id": "math",
+    "question": "Do you enjoy mathematics?",
+    "scale": "1-5"
+  },
+  {
+    "id": "physics",
+    "question": "Do you enjoy physics?",
+    "scale": "1-5"
+  },
+  {
+    "id": "electronics",
+    "question": "Do you enjoy electronics?",
+    "scale": "1-5"
+  },
+  {
+    "id": "mechanical",
+    "question": "Do you enjoy machines and automobiles?",
+    "scale": "1-5"
+  },
+  {
+    "id": "civil",
+    "question": "Do you enjoy construction and infrastructure?",
+    "scale": "1-5"
+  },
+  {
+    "id": "chemistry",
+    "question": "Do you enjoy chemistry?",
+    "scale": "1-5"
+  },
+  {
+    "id": "data",
+    "question": "Do you enjoy analyzing data?",
+    "scale": "1-5"
+  },
+  {
+    "id": "salary",
+    "question": "Do you want high salary potential?",
+    "scale": "1-5"
+  },
+  {
+    "id": "government",
+    "question": "Do you prefer government jobs?",
+    "scale": "1-5"
+  },
+  {
+    "id": "startup",
+    "question": "Do you want startup opportunities?",
+    "scale": "1-5"
+  },
+  {
+    "id": "abstract",
+    "question": "Do you enjoy solving abstract problems?",
+    "scale": "1-5"
+  },
+  {
+    "id": "design",
+    "question": "Do you enjoy designing products?",
+    "scale": "1-5"
+  },
+  {
+    "id": "communication",
+    "question": "Do you enjoy working with people?",
+    "scale": "1-5"
+  },
+  {
+    "id": "future",
+    "question": "Do you want future-proof careers?",
+    "scale": "1-5"
+  }
+]

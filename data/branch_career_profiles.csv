@@ -1,0 +1,114 @@
+branch_name,coding_weight,math_weight,electronics_weight,mechanical_weight,chemistry_weight,design_weight,business_weight,communication_weight,difficulty_level,higher_studies_friendly,government_job_friendly,startup_friendly,salary_potential,future_growth_score
+5G,5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Aeronautical Engineering,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Agricultural Engineering,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Agriculture Engineering,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Architectural Assistantship,1,6,0,4,1,8,3,6,7,8,10,4,6,6
+Artificial Intelligence,10,9,2,0,0,3,5,4,9,10,4,9,10,10
+Artificial Intelligence (AI) and Data Science,10,9,2,0,0,3,5,4,9,10,4,9,10,10
+Artificial Intelligence and Data Science,10,9,2,0,0,3,5,4,9,10,4,9,10,10
+Artificial Intelligence and Machine Learning,10,9,2,0,0,3,5,4,9,10,4,9,10,10
+Automation and Robotics,7,8,8,8,0,7,3,4,9,9,5,8,8,9
+Automobile Engineering,2,7,3,10,0,7,3,3,8,8,7,6,7,7
+Automotive Technology,2,7,3,10,0,7,3,3,8,8,7,6,7,7
+Bio Medical Engineering,1,5,1,1,0,2,1,2,6,6,4,4,5,5
+Bio Technology,1,5,1,1,0,2,1,2,6,6,4,4,5,5
+Chemical Engineering,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Civil Engineering,1,6,0,4,1,8,3,6,7,8,10,4,6,6
+Civil Engineering (Structural Engineering),1,6,0,4,1,8,3,6,7,8,10,4,6,6
+Civil Engineering and Planning,1,6,0,4,1,8,3,6,7,8,10,4,6,6
+Civil and Environmental Engineering,1,6,0,4,1,8,3,6,7,8,10,4,6,6
+Civil and infrastructure Engineering,1,6,0,4,1,8,3,6,7,8,10,4,6,6
+Computer Engineering,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Engineering (Regional Language),10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Engineering (Software Engineering),10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Science,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Science and Business Systems,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Science and Design,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Science and Engineering,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Science and Engineering (Artificial Intelligence and Data Science),10,9,2,0,0,3,5,4,9,10,4,9,10,10
+Computer Science and Engineering (Artificial Intelligence),10,9,2,0,0,3,5,4,9,10,4,9,10,10
+Computer Science and Engineering (Cyber Security),10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Science and Engineering (Internet of Things and Cyber Security Including Block Chain,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Science and Engineering (IoT),7,8,8,8,0,7,3,4,9,9,5,8,8,9
+Computer Science and Engineering(Artificial Intelligence and Machine Learning),10,9,2,0,0,3,5,4,9,10,4,9,10,10
+Computer Science and Engineering(Cyber Security),10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Science and Engineering(Data Science),10,9,2,0,0,3,5,4,9,10,4,9,10,10
+Computer Science and Information Technology,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Science and Technology,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Computer Technology,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Cyber Security,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Data Engineering,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Data Science,10,9,2,0,0,3,5,4,9,10,4,9,10,10
+Dyestuff Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Electrical Engg [Electrical and Power],3,8,8,3,0,3,2,3,8,8,9,5,7,8
+Electrical Engg[Electronics and Power],5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Electrical Engineering,3,8,8,3,0,3,2,3,8,8,9,5,7,8
+Electrical and Computer,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Electrical and Computer Engineering,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Electrical and ComputerEngineering,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Electrical and Electronics Engineering,5,8,10,1,0,4,2,4,8,9,6,7,8,9
+"Electrical, Electronics and Power",5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Electronics Engineering,5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Electronics Engineering ( VLSI Design and Technology),5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Electronics and Biomedical Engineering,5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Electronics and Communication (Advanced Communication Technology),5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Electronics and Communication Engineering,5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Electronics and Communication(Advanced Communication Technology),5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Electronics and Computer Engineering,5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Electronics and Computer Science,5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Electronics and Telecommunication Engg,5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Fashion Technology,1,4,0,4,5,8,5,5,6,6,4,6,5,5
+Fibres and Textile Processing Technology,1,4,0,4,5,8,5,5,6,6,4,6,5,5
+Fire Engineering,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Food Engineering,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Food Engineering and Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Food Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Food Technology And Management,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Industrial IoT,7,8,8,8,0,7,3,4,9,9,5,8,8,9
+Information Technology,10,8,2,0,0,4,4,4,8,9,4,9,10,10
+Instrumentation Engineering,5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Instrumentation and Control Engineering,5,8,10,1,0,4,2,4,8,9,6,7,8,9
+Internet of Things (IoT),7,8,8,8,0,7,3,4,9,9,5,8,8,9
+Logistics,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Man Made Textile Technology,1,4,0,4,5,8,5,5,6,6,4,6,5,5
+Manufacturing Science and Engineering,2,7,3,10,0,7,3,3,8,8,7,6,7,7
+Mechanical & Automation Engineering,7,8,8,8,0,7,3,4,9,9,5,8,8,9
+Mechanical Engineering,2,7,3,10,0,7,3,3,8,8,7,6,7,7
+Mechanical Engineering Automobile,2,7,3,10,0,7,3,3,8,8,7,6,7,7
+Mechanical Engineering[Sandwich],2,7,3,10,0,7,3,3,8,8,7,6,7,7
+Mechanical and Automation Engineering,7,8,8,8,0,7,3,4,9,9,5,8,8,9
+Mechanical and Mechatronics Engineering (Additive Manufacturing),2,7,3,10,0,7,3,3,8,8,7,6,7,7
+Mechatronics Engineering,2,7,3,10,0,7,3,3,8,8,7,6,7,7
+Metallurgy and Material Technology,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Mining Engineering,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Oil Fats and Waxes Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Oil Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Oil and Paints Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+"Oil,Oleochemicals and Surfactants Technology",1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Paints Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Paper and Pulp Technology,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Petro Chemical Engineering,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Petro Chemical Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Pharmaceutical and Fine Chemical Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Pharmaceuticals Chemistry and Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Plastic Technology,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Plastic and Polymer Engineering,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Plastic and Polymer Technology,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Polymer Engineering and Technology,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Printing Technology,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Printing and Packing Technology,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Production Engineering,2,7,3,10,0,7,3,3,8,8,7,6,7,7
+Production Engineering[Sandwich],2,7,3,10,0,7,3,3,8,8,7,6,7,7
+Robotics,7,8,8,8,0,7,3,4,9,9,5,8,8,9
+Robotics and Artificial Intelligence,7,8,8,8,0,7,3,4,9,9,5,8,8,9
+Robotics and Automation,7,8,8,8,0,7,3,4,9,9,5,8,8,9
+Safety and Fire Engineering,2,6,2,5,4,4,4,4,7,7,6,4,6,6
+Structural Engineering,1,6,0,4,1,8,3,6,7,8,10,4,6,6
+Surface Coating Technology,1,6,0,2,10,3,3,3,8,9,6,5,7,7
+Technical Textiles,1,4,0,4,5,8,5,5,6,6,4,6,5,5
+Textile Chemistry,1,4,0,4,5,8,5,5,6,6,4,6,5,5
+Textile Engineering / Technology,1,4,0,4,5,8,5,5,6,6,4,6,5,5
+Textile Plant Engineering,1,4,0,4,5,8,5,5,6,6,4,6,5,5
+Textile Technology,1,4,0,4,5,8,5,5,6,6,4,6,5,5
+VLSI,5,8,10,1,0,4,2,4,8,9,6,7,8,9

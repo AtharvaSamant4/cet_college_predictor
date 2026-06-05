@@ -1,0 +1,1 @@
+from config.category_mapping_v2 import CATEGORY_MAP, DISPLAY_CATEGORIES
