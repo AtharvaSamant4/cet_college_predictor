@@ -111,6 +111,12 @@ RELIABILITY_ORDER = {
     "UNKNOWN": 4,
 }
 
+RELIABILITY_GROUP_COLUMNS = [
+    "college_name",
+    "branch_name",
+    "category",
+]
+
 
 def is_yes(value):
     return str(value).strip().lower() in {"y", "yes", "true", "1"}
@@ -145,11 +151,59 @@ def clean_text_columns(df):
     return df
 
 
-def load_reliability():
-    if not RELIABILITY_PATH.exists():
-        from analysis.forecast_reliability import build_forecast_reliability
+def classify_reliability(volatility, max_yearly_change):
+    if volatility < 3 and max_yearly_change < 5:
+        return "HIGH"
+    if volatility < 8 and max_yearly_change < 15:
+        return "MEDIUM"
+    return "LOW"
 
-        return build_forecast_reliability()
+
+def build_reliability_from_cutoffs(cutoffs):
+    yearly_cutoffs = (
+        cutoffs
+        .groupby(RELIABILITY_GROUP_COLUMNS + ["year"])["percentile"]
+        .mean()
+        .reset_index()
+    )
+    available_years = sorted(int(year) for year in yearly_cutoffs["year"].unique())
+    reliability = (
+        yearly_cutoffs
+        .pivot_table(
+            index=RELIABILITY_GROUP_COLUMNS,
+            columns="year",
+            values="percentile",
+        )
+        .reset_index()
+        .rename(columns={year: f"cutoff_{year}" for year in available_years})
+    )
+    cutoff_columns = [f"cutoff_{year}" for year in available_years]
+    reliability = reliability.dropna(subset=cutoff_columns).copy()
+
+    change_columns = []
+    for previous_year, current_year in zip(available_years, available_years[1:]):
+        column = f"change_{str(previous_year)[-2:]}_{str(current_year)[-2:]}"
+        reliability[column] = (
+            reliability[f"cutoff_{current_year}"]
+            - reliability[f"cutoff_{previous_year}"]
+        )
+        change_columns.append(column)
+
+    reliability["volatility"] = reliability[cutoff_columns].std(axis=1, ddof=0)
+    reliability["max_yearly_change"] = reliability[change_columns].abs().max(axis=1)
+    reliability["reliability"] = reliability.apply(
+        lambda row: classify_reliability(
+            row["volatility"],
+            row["max_yearly_change"],
+        ),
+        axis=1,
+    )
+    return reliability[RELIABILITY_GROUP_COLUMNS + ["reliability"]]
+
+
+def load_reliability(cutoffs):
+    if not RELIABILITY_PATH.exists():
+        return build_reliability_from_cutoffs(cutoffs)
 
     return pd.read_csv(RELIABILITY_PATH)
 
@@ -164,7 +218,7 @@ def load_data():
         pd.read_csv(METADATA_PATH, keep_default_na=False)
     )
     rankings = pd.read_csv(RANKINGS_PATH, keep_default_na=False)
-    reliability = load_reliability()
+    reliability = load_reliability(cutoffs)
 
     rankings["overall_score"] = pd.to_numeric(
         rankings["overall_score"],
