@@ -151,8 +151,7 @@ main {
 }
 
 .control-panel,
-.results-area,
-.health-panel {
+.results-area {
   background: #ffffff;
   border: 1px solid #dce3ea;
   border-radius: 8px;
@@ -206,7 +205,7 @@ main {
 .muted,
 .empty-state,
 .forecast-result p,
-.health-panel p {
+.branch-card p {
   color: #5f7080;
 }
 
@@ -739,30 +738,6 @@ dd {
   border-radius: 999px;
   font-size: 0.76rem;
   font-weight: 850;
-}
-
-.health-page {
-  display: grid;
-  place-items: center;
-  min-height: 55vh;
-}
-
-.health-panel {
-  width: min(100%, 520px);
-  padding: 28px;
-}
-
-.health-panel h2 {
-  margin-bottom: 8px;
-  font-size: 2.4rem;
-}
-
-.status-ok {
-  color: #20724c;
-}
-
-.status-bad {
-  color: #b92b2b;
 }
 
 @media (max-width: 900px) {

@@ -55,7 +55,6 @@ function App() {
             ["career", "Career Match"],
             ["target", "Target"],
             ["explore", "Explore Branches"],
-            ["health", "Health"],
           ].map(([key, label]) => (
             <button
               key={key}
@@ -73,7 +72,6 @@ function App() {
         {activePage === "career" && <CareerMatchPage />}
         {activePage === "target" && <TargetPercentilePage />}
         {activePage === "explore" && <BranchExplorerPage />}
-        {activePage === "health" && <HealthPage />}
       </main>
     </div>
   );
@@ -904,38 +902,6 @@ function BranchExplorerPage() {
       {!loading && branches.length === 0 && (
         <div className="empty-state">No matching branches found.</div>
       )}
-    </section>
-  );
-}
-
-function HealthPage() {
-  const [health, setHealth] = useState({ status: "checking" });
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    async function checkHealth() {
-      try {
-        const data = await fetchJson("/health");
-        setHealth(data);
-      } catch (err) {
-        setError(err.message);
-        setHealth({ status: "offline" });
-      }
-    }
-
-    checkHealth();
-  }, []);
-
-  return (
-    <section className="health-page">
-      <div className="health-panel">
-        <p className="eyebrow">Backend Status</p>
-        <h2 className={health.status === "ok" ? "status-ok" : "status-bad"}>
-          {health.status === "ok" ? "Online" : "Offline"}
-        </h2>
-        <p>{API_BASE_URL}</p>
-        {error && <div className="error-box">{error}</div>}
-      </div>
     </section>
   );
 }
