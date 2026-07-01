@@ -157,9 +157,6 @@ BRANCH_MAP = {
     "MINING": [
         "Mining Engineering",
     ],
-    "LOGISTICS": [
-        "Logistics",
-    ],
 }
 
 

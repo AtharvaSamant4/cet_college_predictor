@@ -7,7 +7,13 @@ class RecommendationRequest(BaseModel):
     percentile: float = Field(..., ge=0, le=100)
     category: str = Field(..., min_length=1)
     branch: str = Field(..., min_length=1)
-    location: Optional[str] = None
+    district: Optional[str] = None
+    city: Optional[str] = None
+    locality: Optional[str] = None
+    cap_round: str = Field(..., pattern="^CAP[1-4]$")
+    gender: str = Field("Male", pattern="^(Male|Female)$")
+    is_pwd: bool = False
+    is_defense: bool = False
     government_only: bool = False
     autonomous_only: bool = False
     minority_allowed: bool = True

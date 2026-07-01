@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 
 class RecommendationItem(BaseModel):
+    college_code: int
     college_name: str
     branch_name: str
     city: str
@@ -35,6 +36,7 @@ class RecommendationItem(BaseModel):
 
 
 class DataAvailabilityItem(BaseModel):
+    college_code: int
     college_name: str
     branch_name: str
     city: str
@@ -45,6 +47,7 @@ class DataAvailabilityItem(BaseModel):
 
 class RecommendationResponse(BaseModel):
     message: Optional[str] = None
+    selected_cap_round: Optional[str] = None
     very_safe: List[RecommendationItem]
     safe: List[RecommendationItem]
     moderate: List[RecommendationItem]

@@ -5,11 +5,11 @@ from fastapi import APIRouter
 
 from backend.schemas.response_models import MetadataListResponse
 from config.category_mapping import DISPLAY_CATEGORIES
-from config.user_branch_families import DISPLAY_BRANCH_FAMILIES
+from config.user_branch_families import DISPLAY_BRANCH_FAMILIES, USER_BRANCH_FAMILIES
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-METADATA_PATH = ROOT_DIR / "data" / "college_metadata.csv"
+from backend.database import engine
+from sqlalchemy import text
 
 COMMON_LOCATION_ALIASES = [
     "All Maharashtra",
@@ -96,12 +96,44 @@ def get_branches():
     return MetadataListResponse(values=list(DISPLAY_BRANCH_FAMILIES))
 
 
-@router.get("/locations", response_model=MetadataListResponse)
-def get_locations():
-    metadata = pd.read_csv(METADATA_PATH, keep_default_na=False)
-    locations = set(clean_values(metadata["city"]))
-    locations.update(infer_locations_from_names(metadata["college_name"]))
-    locations.update(COMMON_LOCATION_ALIASES)
-    return MetadataListResponse(
-        values=["All Maharashtra"] + sorted(location for location in locations if location != "All Maharashtra")
-    )
+@router.get("/grouped-branches")
+def get_grouped_branches():
+    return USER_BRANCH_FAMILIES
+
+
+@router.get("/districts", response_model=MetadataListResponse)
+def get_districts():
+    with engine.connect() as conn:
+        res = conn.execute(text("SELECT DISTINCT name FROM districts ORDER BY name"))
+        districts = [row[0] for row in res]
+    return MetadataListResponse(values=districts)
+
+
+@router.get("/cities", response_model=MetadataListResponse)
+def get_cities(district: str = None):
+    query = "SELECT DISTINCT name FROM cities"
+    params = {}
+    if district:
+        query += " WHERE district_id IN (SELECT id FROM districts WHERE name = :district)"
+        params["district"] = district
+    query += " ORDER BY name"
+    
+    with engine.connect() as conn:
+        res = conn.execute(text(query), params)
+        cities = [row[0] for row in res]
+    return MetadataListResponse(values=cities)
+
+
+@router.get("/localities", response_model=MetadataListResponse)
+def get_localities(city: str = None):
+    query = "SELECT DISTINCT name FROM localities"
+    params = {}
+    if city:
+        query += " WHERE city_id IN (SELECT id FROM cities WHERE name = :city)"
+        params["city"] = city
+    query += " ORDER BY name"
+    
+    with engine.connect() as conn:
+        res = conn.execute(text(query), params)
+        localities = [row[0] for row in res]
+    return MetadataListResponse(values=localities)

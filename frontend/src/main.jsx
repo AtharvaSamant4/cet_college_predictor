@@ -196,36 +196,133 @@ function CareerMatchPage() {
   );
 }
 
+function BranchSelect({ value, onChange, groupedBranches }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = React.useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredGroups = useMemo(() => {
+    if (!search) return groupedBranches;
+    const lowerSearch = search.toLowerCase();
+    const result = {};
+    for (const [family, branches] of Object.entries(groupedBranches)) {
+      const matchedBranches = branches.filter(b => b.toLowerCase().includes(lowerSearch));
+      if (family.toLowerCase().includes(lowerSearch) || matchedBranches.length > 0) {
+        result[family] = matchedBranches.length > 0 ? matchedBranches : branches;
+      }
+    }
+    return result;
+  }, [search, groupedBranches]);
+
+  return (
+    <div className="custom-dropdown" ref={dropdownRef}>
+      <button 
+        type="button" 
+        className="dropdown-trigger" 
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {value || "Select or search a branch..."}
+        <span className="dropdown-arrow">▼</span>
+      </button>
+
+      {isOpen && (
+        <div className="dropdown-menu">
+          <input 
+            type="text" 
+            className="dropdown-search" 
+            placeholder="Type to search all branches..." 
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            autoFocus
+          />
+          <div className="dropdown-list">
+            {Object.keys(filteredGroups).length === 0 && (
+              <div className="dropdown-empty">No branches found.</div>
+            )}
+            {Object.entries(filteredGroups).map(([family, branches]) => (
+              <div key={family} className="dropdown-group">
+                <div 
+                  className="dropdown-group-label"
+                  onClick={() => {
+                    onChange(family);
+                    setIsOpen(false);
+                    setSearch("");
+                  }}
+                  title={`Select all branches in ${family}`}
+                >
+                  {family}
+                </div>
+                {branches.map(branch => (
+                  <div 
+                    key={branch} 
+                    className={`dropdown-option ${value === branch ? 'selected' : ''}`}
+                    onClick={() => {
+                      onChange(branch);
+                      setIsOpen(false);
+                      setSearch("");
+                    }}
+                  >
+                    {branch}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RecommendationPage() {
   const [metadata, setMetadata] = useState({
     categories: [],
-    branches: [],
-    locations: [],
+    groupedBranches: {},
+    districts: [],
   });
+  const [cities, setCities] = useState([]);
+  const [localities, setLocalities] = useState([]);
   const [branchResults, setBranchResults] = useState([]);
   const [form, setForm] = useState({
     percentile: "95",
     category: "OPEN",
+    gender: "Male",
+    isPwd: false,
+    isDefense: false,
     branch: "Computer & IT",
-    location: "Pune",
+    district: "",
+    city: "",
+    locality: "",
+    capRound: "",
     showAllMatches: false,
   });
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showAllRecommendations, setShowAllRecommendations] = useState(false);
 
   useEffect(() => {
     async function loadMetadata() {
       try {
-        const [categories, branches, locations] = await Promise.all([
+        const [categories, groupedBranches, districts] = await Promise.all([
           fetchJson("/categories"),
-          fetchJson("/branches"),
-          fetchJson("/locations"),
+          fetchJson("/grouped-branches"),
+          fetchJson("/districts"),
         ]);
         setMetadata({
           categories: categories.values || [],
-          branches: branches.values || [],
-          locations: locations.values || [],
+          groupedBranches: groupedBranches || {},
+          districts: districts.values || [],
         });
       } catch (err) {
         setError(err.message);
@@ -236,38 +333,55 @@ function RecommendationPage() {
   }, []);
 
   useEffect(() => {
-    const query = form.branch.trim();
-    if (query.length < 2) {
-      setBranchResults([]);
-      return;
+    let ignore = false;
+    if (form.district) {
+      fetchJson(`/cities?district=${encodeURIComponent(form.district)}`)
+        .then(data => { if (!ignore) setCities(data.values || []) })
+        .catch(() => { if (!ignore) setCities([]) });
+    } else {
+      setCities([]);
     }
+    return () => { ignore = true; };
+  }, [form.district]);
 
-    const timeout = window.setTimeout(async () => {
-      try {
-        const data = await fetchJson(`/branch-search?q=${encodeURIComponent(query)}`);
-        setBranchResults(data.results || []);
-      } catch {
-        setBranchResults([]);
-      }
-    }, 180);
+  useEffect(() => {
+    let ignore = false;
+    if (form.city) {
+      fetchJson(`/localities?city=${encodeURIComponent(form.city)}`)
+        .then(data => { if (!ignore) setLocalities(data.values || []) })
+        .catch(() => { if (!ignore) setLocalities([]) });
+    } else {
+      setLocalities([]);
+    }
+    return () => { ignore = true; };
+  }, [form.city]);
 
-    return () => window.clearTimeout(timeout);
-  }, [form.branch]);
+
 
   async function handleSubmit(event) {
     event.preventDefault();
     setLoading(true);
     setError("");
+    setShowAllRecommendations(false);
 
     try {
+      if (!form.capRound) {
+        setError("Please select an Admission (CAP) Round.");
+        setLoading(false);
+        return;
+      }
+      
       const payload = {
         percentile: Number(form.percentile),
         category: form.category,
         branch: form.branch,
-        location:
-          form.location.trim().toLowerCase() === "all maharashtra"
-            ? null
-            : form.location || null,
+        district: form.district || null,
+        city: form.city || null,
+        locality: form.locality || null,
+        cap_round: form.capRound || null,
+        gender: form.gender,
+        is_pwd: form.isPwd,
+        is_defense: form.isDefense,
         show_all_matches: form.showAllMatches,
       };
       const data = await postJson("/recommend", payload);
@@ -289,13 +403,17 @@ function RecommendationPage() {
     return scored + (result.unavailable?.length || 0);
   }, [result]);
 
-  const visibleRecommendations = useMemo(() => {
+  const allRecommendations = useMemo(() => {
     if (!result) return [];
     return RESULT_KEYS.flatMap((key) => result[key] || []);
   }, [result]);
 
+  const displayedRecommendations = useMemo(() => {
+    return showAllRecommendations ? allRecommendations : allRecommendations.slice(0, 10);
+  }, [allRecommendations, showAllRecommendations]);
+
   function itemsForChance(chance) {
-    return visibleRecommendations
+    return displayedRecommendations
       .filter((item) => item.admission_chance === chance)
       .sort((left, right) => (right.recommendation_score || 0) - (left.recommendation_score || 0));
   }
@@ -335,6 +453,7 @@ function RecommendationPage() {
             onChange={(event) => setForm({ ...form, category: event.target.value })}
             required
           >
+            <option value="" disabled>Select Category</option>
             {metadata.categories.map((category) => (
               <option key={category} value={category}>
                 {category}
@@ -344,49 +463,95 @@ function RecommendationPage() {
         </label>
 
         <label>
-          Branch Search
-          <input
-            list="branch-options"
-            value={form.branch}
-            onChange={(event) => setForm({ ...form, branch: event.target.value })}
-            placeholder="Computer & IT, AI, cyber, data..."
+          Gender
+          <select
+            value={form.gender}
+            onChange={(event) => setForm({ ...form, gender: event.target.value })}
             required
-          />
-          <datalist id="branch-options">
-            {[...metadata.branches, ...branchResults.map((item) => item.branch_name)].map((branch) => (
-              <option key={branch} value={branch} />
-            ))}
-          </datalist>
+          >
+            <option value="Male">Male / General</option>
+            <option value="Female">Female</option>
+          </select>
         </label>
 
-        {branchResults.length > 0 && (
-          <div className="suggestion-list" aria-label="Branch search suggestions">
-            {branchResults.slice(0, 6).map((item) => (
-              <button
-                key={item.branch_name}
-                type="button"
-                onClick={() => setForm({ ...form, branch: item.branch_name })}
-              >
-                {item.branch_name}
-              </button>
-            ))}
-          </div>
-        )}
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={form.isPwd}
+            onChange={(event) => setForm({ ...form, isPwd: event.target.checked })}
+          />
+          I am a Persons with Disability (PWD) candidate
+        </label>
+
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={form.isDefense}
+            onChange={(event) => setForm({ ...form, isDefense: event.target.checked })}
+          />
+          I am a Defense Quota candidate
+        </label>
 
         <label>
-          Location
-          <input
-            list="location-options"
-            value={form.location}
-            onChange={(event) => setForm({ ...form, location: event.target.value })}
-            placeholder="All Maharashtra"
-          />
-          <datalist id="location-options">
-            {metadata.locations.map((location) => (
-              <option key={location} value={location} />
-            ))}
-          </datalist>
+          Admission Round *
+          <select
+            value={form.capRound}
+            onChange={(event) => setForm({ ...form, capRound: event.target.value })}
+            required
+          >
+            <option value="" disabled>Select CAP Round</option>
+            <option value="CAP1">CAP Round 1</option>
+            <option value="CAP2">CAP Round 2</option>
+            <option value="CAP3">CAP Round 3</option>
+            <option value="CAP4">CAP Round 4</option>
+          </select>
         </label>
+
+        <label>
+          Branch Selection
+          <BranchSelect
+            value={form.branch}
+            onChange={(val) => setForm({ ...form, branch: val })}
+            groupedBranches={metadata.groupedBranches}
+          />
+        </label>
+
+        <label>
+          District
+          <select
+            value={form.district}
+            onChange={(event) => setForm({ ...form, district: event.target.value, city: "", locality: "" })}
+          >
+            <option value="">All Maharashtra</option>
+            {metadata.districts.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </label>
+
+        {form.district && (
+          <label>
+            City
+            <select
+              value={form.city}
+              onChange={(event) => setForm({ ...form, city: event.target.value, locality: "" })}
+            >
+              <option value="">All Cities in {form.district}</option>
+              {cities.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </label>
+        )}
+
+        {form.city && (
+          <label>
+            Locality
+            <select
+              value={form.locality}
+              onChange={(event) => setForm({ ...form, locality: event.target.value })}
+            >
+              <option value="">All Localities in {form.city}</option>
+              {localities.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </label>
+        )}
 
         <label className="checkbox-row">
           <input
@@ -417,14 +582,19 @@ function RecommendationPage() {
         {result ? (
           <div className="bucket-grid">
             <div className="result-group">
-              <h3>Recommended Colleges</h3>
-              <p className="muted">High chance and possible options for your main shortlist.</p>
+              <h3>{showAllRecommendations || allRecommendations.length <= 10 ? "Recommended Colleges" : "Top 10 Recommended Colleges"}</h3>
+              <p className="muted">
+                {allRecommendations.length > 10 && !showAllRecommendations 
+                  ? `Showing 10 of ${allRecommendations.length} recommendations.` 
+                  : "High chance and possible options for your main shortlist."}
+              </p>
               {RECOMMENDED_BUCKETS.map((bucket) => (
                 <RecommendationBucket
                   key={bucket.label}
                   title={bucket.label}
                   items={itemsForChance(bucket.chance)}
                   percentile={Number(form.percentile)}
+                  capRound={result.selected_cap_round}
                 />
               ))}
             </div>
@@ -435,8 +605,24 @@ function RecommendationPage() {
                 title={DREAM_BUCKET.label}
                 items={itemsForChance(DREAM_BUCKET.chance)}
                 percentile={Number(form.percentile)}
+                capRound={result.selected_cap_round}
               />
             </div>
+
+            {allRecommendations.length > 10 && (
+              <div style={{ textAlign: "center", margin: "2rem 0" }}>
+                <button 
+                  className="primary-button" 
+                  type="button"
+                  onClick={() => setShowAllRecommendations(!showAllRecommendations)}
+                >
+                  {showAllRecommendations 
+                    ? "Show Less" 
+                    : `View All Recommendations (${allRecommendations.length})`}
+                </button>
+              </div>
+            )}
+
             {result.unavailable?.length > 0 && (
               <DataAvailabilityBucket items={result.unavailable} />
             )}
@@ -479,7 +665,7 @@ function DataAvailabilityBucket({ items }) {
   );
 }
 
-function RecommendationBucket({ title, items, percentile }) {
+function RecommendationBucket({ title, items, percentile, capRound }) {
   return (
     <section className="bucket-section">
       <div className="bucket-title">
@@ -495,6 +681,7 @@ function RecommendationBucket({ title, items, percentile }) {
               key={`${item.college_name}-${item.branch_name}-${index}`}
               item={item}
               percentile={percentile}
+              capRound={capRound}
             />
           ))
         )}
@@ -503,7 +690,7 @@ function RecommendationBucket({ title, items, percentile }) {
   );
 }
 
-function RecommendationCard({ item, percentile }) {
+function RecommendationCard({ item, percentile, capRound }) {
   const [showDetails, setShowDetails] = useState(false);
 
   return (
@@ -511,6 +698,11 @@ function RecommendationCard({ item, percentile }) {
       <h4>{item.college_name}</h4>
       <p>{item.branch_name}</p>
       <p className="city-line">{item.city || "Maharashtra"}</p>
+      {capRound && (
+        <div className="selected-cap-round-badge" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+          Selected Admission Round: {capRound.replace("CAP", "CAP Round ")}
+        </div>
+      )}
       {item.historical_cutoff_2025 != null && (
         <div className="fresh-data-badge">Latest CAP Data Available</div>
       )}
@@ -686,8 +878,8 @@ function TargetPercentilePage() {
         </label>
 
         {collegeResults.length > 0 && (
-          <div className="suggestion-list" aria-label="College suggestions">
-            {collegeResults.slice(0, 6).map((college) => (
+          <div className="suggestion-list" aria-label="College suggestions" style={{ maxHeight: "250px", overflowY: "auto" }}>
+            {collegeResults.map((college) => (
               <button
                 key={college.college_code}
                 type="button"
@@ -716,8 +908,8 @@ function TargetPercentilePage() {
         </label>
 
         {branchResults.length > 0 && (
-          <div className="suggestion-list" aria-label="College branch suggestions">
-            {branchResults.slice(0, 6).map((branch) => (
+          <div className="suggestion-list" aria-label="College branch suggestions" style={{ maxHeight: "250px", overflowY: "auto" }}>
+            {branchResults.map((branch) => (
               <button
                 key={branch.branch_name}
                 type="button"
@@ -736,6 +928,7 @@ function TargetPercentilePage() {
             onChange={(event) => setForm({ ...form, category: event.target.value })}
             required
           >
+            <option value="" disabled>Select Category</option>
             {metadata.categories.map((category) => (
               <option key={category} value={category}>
                 {category}

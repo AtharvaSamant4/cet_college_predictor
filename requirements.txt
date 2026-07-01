@@ -3,3 +3,6 @@ pdfplumber
 tqdm
 fastapi
 uvicorn
+psycopg2-binary
+SQLAlchemy
+python-dotenv
