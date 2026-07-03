@@ -289,6 +289,9 @@ function BranchSelect({ value, onChange, groupedBranches }) {
 function CustomSelect({ value, onChange, options, placeholder = "Select..." }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = React.useRef(null);
+  const listRef = React.useRef(null);
+  const searchTimeoutRef = React.useRef(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -300,11 +303,60 @@ function CustomSelect({ value, onChange, options, placeholder = "Select..." }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleKeyDown = (e) => {
+    // If it's Enter/Space and closed, open it
+    if ((e.key === 'Enter' || e.key === ' ') && !isOpen) {
+      e.preventDefault();
+      setIsOpen(true);
+      return;
+    }
+
+    if (e.key === 'Escape' && isOpen) {
+      setIsOpen(false);
+      return;
+    }
+
+    // Ignore modifiers
+    if (e.ctrlKey || e.altKey || e.metaKey || e.key.length !== 1) return;
+
+    e.preventDefault(); // Prevent page scrolling when typing
+
+    const char = e.key.toLowerCase();
+    const newSearchTerm = searchTerm + char;
+    setSearchTerm(newSearchTerm);
+    
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchTerm("");
+    }, 700);
+
+    const match = options.find(opt => {
+      const optLabel = opt.label !== undefined ? opt.label : (opt.value !== undefined ? opt.value : opt);
+      const lowerLabel = String(optLabel).toLowerCase();
+      // Match if the label starts with the search term, or any word inside it starts with the search term
+      const tokens = lowerLabel.split(/[\s()_,-]+/);
+      return tokens.some(t => t.startsWith(newSearchTerm)) || lowerLabel.startsWith(newSearchTerm);
+    });
+
+    if (match) {
+      const matchVal = match.value !== undefined ? match.value : match;
+      onChange(matchVal);
+      // Scroll into view if list is open
+      if (isOpen && listRef.current) {
+         const index = options.indexOf(match);
+         const optionEl = listRef.current.children[index];
+         if (optionEl) {
+           optionEl.scrollIntoView({ block: 'nearest' });
+         }
+      }
+    }
+  };
+
   const displayValue = options.find(opt => (opt.value !== undefined ? opt.value : opt) === value || opt === value);
   const label = displayValue?.label || displayValue?.value || displayValue || placeholder;
 
   return (
-    <div className="custom-dropdown" ref={dropdownRef}>
+    <div className="custom-dropdown" ref={dropdownRef} onKeyDown={handleKeyDown}>
       <button 
         type="button" 
         className="dropdown-trigger" 
@@ -316,7 +368,7 @@ function CustomSelect({ value, onChange, options, placeholder = "Select..." }) {
 
       {isOpen && (
         <div className="dropdown-menu">
-          <div className="dropdown-list">
+          <div className="dropdown-list" ref={listRef}>
             {options.map((opt, i) => {
               const optVal = opt.value !== undefined ? opt.value : opt;
               const optLabel = opt.label !== undefined ? opt.label : optVal;

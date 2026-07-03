@@ -255,12 +255,14 @@ main {
 }
 
 .control-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
   padding: 24px;
+  padding-bottom: 48px; /* Force extra space at bottom for the button */
   position: sticky;
   top: 96px;
-  max-height: calc(100vh - 120px);
+  max-height: calc(100vh - 96px);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
