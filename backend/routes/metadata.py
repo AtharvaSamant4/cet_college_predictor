@@ -101,6 +101,14 @@ def get_grouped_branches():
     return USER_BRANCH_FAMILIES
 
 
+from config.university_mapping import DISTRICT_TO_UNIVERSITY
+
+@router.get("/home-districts", response_model=MetadataListResponse)
+def get_home_districts():
+    districts = sorted(list(DISTRICT_TO_UNIVERSITY.keys()))
+    return MetadataListResponse(values=districts)
+
+
 @router.get("/districts", response_model=MetadataListResponse)
 def get_districts():
     with engine.connect() as conn:

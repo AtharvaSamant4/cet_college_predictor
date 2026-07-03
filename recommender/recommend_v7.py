@@ -1,11 +1,17 @@
 import pandas as pd
 from sqlalchemy import text
 from backend.database import engine
+from config.university_mapping import get_home_university
 
-def fetch_db_recommendations(percentile, category, branch, district, city_name, locality, cap_round, gender, is_pwd, is_defense, government_only, autonomous_only, minority_allowed, region, show_all_matches):
+def fetch_db_recommendations(percentile, category, branch, district, city_name, locality, cap_round, gender, is_pwd, is_defense, government_only, autonomous_only, home_district, is_tfws, is_ews, minority_type, region, show_all_matches):
+    user_university = get_home_university(home_district)
+    
+    # EWS is strictly for OPEN category candidates
+    if category != "OPEN":
+        is_ews = False
+    
     query = """
     WITH requested_branch AS (
-        -- Simple search on branch name or family
         SELECT b.id as branch_id
         FROM branches b
         JOIN branch_families f ON b.family_id = f.id
@@ -13,26 +19,35 @@ def fetch_db_recommendations(percentile, category, branch, district, city_name, 
         WHERE b.canonical_name ILIKE :branch_q
            OR f.display_name ILIKE :branch_q
            OR a.alias_name ILIKE :branch_q
-           OR :branch_q = 'Any'
+           OR :branch = 'Any'
     ),
     requested_category AS (
-        SELECT rc.id as cat_id
+        SELECT rc.id as cat_id, rc.code as raw_category_code
         FROM raw_categories rc
         JOIN category_groups cg ON rc.group_id = cg.id
-        WHERE cg.code = :category_q
-          AND (
-              -- If it's a standalone category, just match it directly, ignore the modifiers
-              cg.code IN ('ORPHAN', 'MI', 'EWS', 'TFWS') 
-              OR 
-              (
-                  -- If it's a standard caste category, apply the strict modifiers
-                  cg.code NOT IN ('ORPHAN', 'MI', 'EWS', 'TFWS')
-                  AND (:is_pwd = TRUE OR rc.code NOT LIKE 'PWD%')
-                  AND (:is_defense = TRUE OR rc.code NOT LIKE 'DEF%')
-                  AND (rc.code NOT LIKE '%ORPHAN%')
-                  AND (:is_female = TRUE OR rc.code NOT LIKE 'L%')
-              )
-          )
+        WHERE 
+            (
+                cg.code IN (:category_q, 'OPEN')
+                AND cg.code NOT IN ('ORPHAN', 'MI', 'EWS', 'TFWS')
+                AND (:is_pwd = TRUE OR rc.code NOT LIKE 'PWD%')
+                AND (:is_defense = TRUE OR rc.code NOT LIKE 'DEF%')
+                AND (rc.code NOT LIKE '%ORPHAN%')
+                AND (:is_female = TRUE OR rc.code NOT LIKE 'L%')
+            )
+            OR (:is_tfws = TRUE AND cg.code = 'TFWS')
+            OR (:is_ews = TRUE AND cg.code = 'EWS')
+            OR (:has_minority = TRUE AND cg.code = 'MI')
+    ),
+    latest_year AS (
+        SELECT MAX(year) as max_year FROM cutoff_years
+    ),
+    active_branches AS (
+        SELECT DISTINCT cr.college_id, cr.branch_id
+        FROM cutoff_records cr
+        JOIN cap_rounds cap ON cr.cap_round_id = cap.id
+        JOIN cutoff_years y ON cap.year_id = y.id
+        CROSS JOIN latest_year ly
+        WHERE y.year = ly.max_year
     ),
     historical_yearly_best AS (
         SELECT DISTINCT ON (y.year, cr.college_id, cr.branch_id, cr.raw_category_id)
@@ -48,13 +63,18 @@ def fetch_db_recommendations(percentile, category, branch, district, city_name, 
             college_id, branch_id, raw_category_id,
             percentile as latest_available_cutoff
         FROM historical_yearly_best
-        WHERE year = 2025
+        CROSS JOIN latest_year ly
+        WHERE year = ly.max_year
     ),
     avg_cutoffs AS (
         SELECT 
             college_id, branch_id, raw_category_id,
             AVG(percentile) as average_cutoff,
-            COUNT(DISTINCT year) as historical_year_count
+            COUNT(DISTINCT year) as historical_year_count,
+            MAX(percentile) - MIN(percentile) as cutoff_range,
+            MAX(CASE WHEN year = 2022 THEN percentile END) as cutoff_2022,
+            MAX(CASE WHEN year = 2023 THEN percentile END) as cutoff_2023,
+            MAX(CASE WHEN year = 2024 THEN percentile END) as cutoff_2024
         FROM historical_yearly_best
         GROUP BY college_id, branch_id, raw_category_id
     )
@@ -63,9 +83,11 @@ def fetch_db_recommendations(percentile, category, branch, district, city_name, 
         c.canonical_name as college_name,
         b.canonical_name as branch_name,
         city.name as city,
+        d.name as college_district,
         c.institution_type as college_type,
         CASE WHEN c.is_autonomous THEN 'Autonomous' ELSE 'Non-Autonomous' END as autonomous,
         r.name as region,
+        rc_cte.raw_category_code,
         COALESCE(lc.latest_available_cutoff, ac.average_cutoff) as latest_available_cutoff,
         ac.average_cutoff,
         ac.historical_year_count,
@@ -75,12 +97,19 @@ def fetch_db_recommendations(percentile, category, branch, district, city_name, 
         'SAFE' as confidence_level,
         'Past Data Available' as data_availability_status,
         0.0 as recommendation_score,
-        'Reliable' as reliability,
-        ac.average_cutoff as historical_cutoff_2022,
-        ac.average_cutoff as historical_cutoff_2023,
-        ac.average_cutoff as historical_cutoff_2024,
+        CASE 
+            WHEN ac.historical_year_count < 2 THEN 'UNKNOWN'
+            WHEN ac.cutoff_range <= 3.0 THEN 'HIGH'
+            WHEN ac.cutoff_range <= 7.0 THEN 'MEDIUM'
+            ELSE 'LOW' 
+        END as reliability,
+        ac.cutoff_2022 as historical_cutoff_2022,
+        ac.cutoff_2023 as historical_cutoff_2023,
+        ac.cutoff_2024 as historical_cutoff_2024,
         lc.latest_available_cutoff as historical_cutoff_2025
     FROM avg_cutoffs ac
+    JOIN active_branches ab ON ac.college_id = ab.college_id AND ac.branch_id = ab.branch_id
+    JOIN requested_category rc_cte ON ac.raw_category_id = rc_cte.cat_id
     LEFT JOIN latest_cutoffs lc 
            ON ac.college_id = lc.college_id 
           AND ac.branch_id = lc.branch_id 
@@ -92,24 +121,38 @@ def fetch_db_recommendations(percentile, category, branch, district, city_name, 
     JOIN districts d ON city.district_id = d.id
     JOIN regions r ON d.region_id = r.id
     WHERE ac.branch_id IN (SELECT branch_id FROM requested_branch)
-      AND ac.raw_category_id IN (SELECT cat_id FROM requested_category)
       AND (:district IS NULL OR d.name ILIKE :district)
       AND (:city IS NULL OR city.name ILIKE :city)
       AND (:locality IS NULL OR loc.name ILIKE :locality)
+      AND (rc_cte.raw_category_code NOT LIKE '%MI%' OR c.minority_type = :user_minority_type)
     """
 
+    if autonomous_only:
+        query += " AND c.is_autonomous = TRUE"
+    
+    if government_only:
+        query += " AND c.institution_type IN ('Government', 'Government-Aided', 'University Dept')"
+        
+    if region:
+        query += " AND r.name ILIKE :region"
     cap_round_num = int(cap_round.replace("CAP", ""))
     params = {
+        "branch": branch if branch else "Any",
         "branch_q": f"%{branch}%" if branch else "Any",
         "category_q": category,
         "is_pwd": is_pwd,
         "is_defense": is_defense,
         "is_female": (gender == "Female"),
+        "is_tfws": is_tfws,
+        "is_ews": is_ews,
+        "has_minority": minority_type != "Not Applicable",
+        "user_minority_type": minority_type,
         "cap_round_num": cap_round_num,
         "percentile": float(percentile),
         "district": f"%{district}%" if district else None,
         "city": f"%{city_name}%" if city_name else None,
-        "locality": f"%{locality}%" if locality else None
+        "locality": f"%{locality}%" if locality else None,
+        "region": f"%{region}%" if region else None
     }
 
     with engine.connect() as conn:
@@ -118,40 +161,270 @@ def fetch_db_recommendations(percentile, category, branch, district, city_name, 
     if df.empty:
         return df, pd.DataFrame()
 
-    # Drop duplicates for the same college and branch, keeping the most favorable (lowest) cutoff
-    df = df.sort_values(by=['latest_available_cutoff'], ascending=True)
-    df = df.drop_duplicates(subset=['college_code', 'branch_name'], keep='first')
+    df['college_university'] = df['college_district'].apply(get_home_university)
 
-    df['difference'] = df['difference_vs_latest']
+    def is_home_seat(row):
+        code = row['raw_category_code']
+        if code.endswith('O'):
+            return False
+        return True
+
+    def is_other_seat(row):
+        code = row['raw_category_code']
+        if code.endswith('H'):
+            return False
+        return True
+
+    if user_university is not None:
+        def is_valid_seat(row):
+            code = row['raw_category_code']
+            if code.endswith('S') or code in ('TFWS', 'EWS', 'MI', 'ORPHAN') or 'AI' in code:
+                return True
+            if code.endswith('H'):
+                return user_university == row['college_university']
+            if code.endswith('O'):
+                return user_university != row['college_university']
+            return True
+            
+        df = df[df.apply(is_valid_seat, axis=1)]
     
-    # Calculate recommendation score: 
-    # We want to recommend the BEST colleges the student qualifies for. 
-    # So we sort by the college's cutoff (highest cutoffs first).
+    if df.empty:
+        return df, pd.DataFrame()
+
+    df['original_branch_name'] = df['branch_name']
+    df['seat_category'] = df['raw_category_code'].apply(lambda x: x if x in ['TFWS', 'EWS', 'MI'] else 'Standard')
+    df.loc[df['seat_category'] != 'Standard', 'branch_name'] = df['branch_name'] + " (" + df['seat_category'] + ")"
+
+    seat_priority = {'TFWS': 1, 'EWS': 2, 'MI': 3, 'Standard': 4}
+    
+    def calc_dedup_score(row):
+        diff = row['difference_vs_latest']
+        priority = seat_priority.get(row['seat_category'], 4)
+        cutoff = row['latest_available_cutoff']
+        
+        # Consider a seat mathematically reachable if difference is >= -2.0 
+        # (meaning it will fall into Possible, High Chance, or Very High Chance)
+        is_reachable = diff >= -2.0
+        
+        if is_reachable:
+            # Prioritize special quotas (TFWS/EWS) if they are realistically reachable!
+            return (priority * 1000) + cutoff
+        else:
+            # If it's a pipe dream, prioritize the easiest possible path (lowest cutoff)
+            return 10000 + cutoff
+
+    df['dedup_score'] = df.apply(calc_dedup_score, axis=1)
+
+    if gender == "Male":
+        # Mathematical inference: A Male candidate's DataFrame will only lack a 'Standard' seat 
+        # if all its standard seats were prefixed with 'L' (Ladies seats) and thus filtered out by SQL. 
+        # This means the college is a Women's College. We must drop their Special Quota seats (TFWS/EWS) too!
+        valid_combos = df[df['seat_category'] == 'Standard'][['college_code', 'original_branch_name']].drop_duplicates()
+        df = df.merge(valid_combos, on=['college_code', 'original_branch_name'], how='inner')
+
+    if user_university is not None:
+        df = df.sort_values(by=['dedup_score'], ascending=True)
+        df = df.drop_duplicates(subset=['college_code', 'original_branch_name'], keep='first')
+    else:
+        # Separate into home and other possible seats
+        df_home = df[df.apply(is_home_seat, axis=1)]
+        df_other = df[df.apply(is_other_seat, axis=1)]
+        
+        df_home = df_home.sort_values(by=['dedup_score'], ascending=True)
+        df_home = df_home.drop_duplicates(subset=['college_code', 'original_branch_name'], keep='first')
+        
+        df_other = df_other.sort_values(by=['dedup_score'], ascending=True)
+        df_other = df_other.drop_duplicates(subset=['college_code', 'original_branch_name'], keep='first')
+        
+        df = pd.concat([df_home, df_other])
+        df = df.sort_values(by=['dedup_score'], ascending=True)
+        df = df.drop_duplicates(subset=['college_code', 'original_branch_name'], keep='first')
+
+    df['difference_vs_average'] = df['difference_vs_average'].fillna(0)
+    df['difference_vs_latest'] = df['difference_vs_latest'].fillna(0)
+    df['average_cutoff'] = df['average_cutoff'].fillna(df['latest_available_cutoff'])
+    df['overall_score'] = df['overall_score'].fillna(df['latest_available_cutoff'])
+    df['historical_year_count'] = df['historical_year_count'].fillna(1)
+    df['difference'] = df['difference_vs_latest']
     df['recommendation_score'] = df['latest_available_cutoff']
     
-    # Generate admission chance using the same logic the existing code expects
     def get_chance(row):
         diff = row['difference_vs_latest']
         diff_avg = row['difference_vs_average']
+        latest = row['latest_available_cutoff']
+        avg = row['average_cutoff']
+        
+        # Anomaly Detection: If the latest year spiked more than 5 percentiles above the historical average
+        is_spike = (latest - avg) >= 5
+        
         if diff < 0:
-            if diff >= -2: return "MODERATE"
+            # You missed the latest year's cutoff
+            if is_spike and diff_avg >= 0:
+                # Latest year was a massive spike, but you beat the historical average!
+                # Don't dump this into Difficult. It's realistically possible.
+                if diff >= -5:
+                    return "HIGH CHANCE"
+                return "POSSIBLE"
+                
+            # Normal logic
+            if diff >= -2: return "POSSIBLE"
             return "DIFFICULT"
-        if diff_avg < -2: return "MODERATE"
-        if diff >= 2: return "SAFE"
-        return "SAFE"
+            
+        # diff >= 0 (You beat the latest cutoff)
+        if diff_avg < -2: 
+            # You beat latest, but latest crashed significantly below the historical average.
+            # We are cautious.
+            return "POSSIBLE"
+        
+        if diff >= 2:
+            if diff_avg >= 0:
+                return "VERY HIGH CHANCE"
+            else:
+                return "HIGH CHANCE"
+                
+        return "HIGH CHANCE"
         
     df['confidence_level'] = df.apply(get_chance, axis=1)
-    
-    # Sort
     df = df.sort_values(by=['recommendation_score'], ascending=False)
     
-    if not show_all_matches:
-        # Just return top ones if not showing all
-        pass # The frontend limits it if it wants, we'll return all and let frontend slice, or we just return top 50
-        
     return df, pd.DataFrame()
 
-def find_category_data_gaps(category, branch, district, city_name, locality, cap_round, government_only, autonomous_only, minority_allowed, region):
-    # For now, return empty dataframe, meaning no gaps identified by SQL.
-    # In a full implementation, this would query branches that exist but have no cutoffs for the category.
-    return pd.DataFrame()
+def find_category_data_gaps(category, branch, district, city_name, locality, cap_round, government_only, autonomous_only, minority_allowed, region, gender="Male", is_pwd=False, is_defense=False, is_tfws=False, is_ews=False, minority_type="Not Applicable", home_district=None):
+    user_university = get_home_university(home_district)
+    
+    # EWS is strictly for OPEN category candidates
+    if category != "OPEN":
+        is_ews = False
+
+    query = """
+    WITH latest_year AS (
+        SELECT MAX(year) as max_year FROM cutoff_years
+    ),
+    active_branches AS (
+        SELECT DISTINCT cr.college_id, cr.branch_id
+        FROM cutoff_records cr
+        JOIN cap_rounds cap ON cr.cap_round_id = cap.id
+        JOIN cutoff_years y ON cap.year_id = y.id
+        CROSS JOIN latest_year ly
+        WHERE y.year = ly.max_year
+    ),
+    requested_branch AS (
+        SELECT b.id as branch_id
+        FROM branches b
+        JOIN branch_families f ON b.family_id = f.id
+        LEFT JOIN branch_aliases a ON a.branch_id = b.id
+        WHERE b.canonical_name ILIKE :branch_q
+           OR f.display_name ILIKE :branch_q
+           OR a.alias_name ILIKE :branch_q
+           OR :branch = 'Any'
+    ),
+    requested_category AS (
+        SELECT rc.id as cat_id, rc.code as raw_category_code
+        FROM raw_categories rc
+        JOIN category_groups cg ON rc.group_id = cg.id
+        WHERE 
+            (
+                cg.code = :category_q
+                AND cg.code NOT IN ('ORPHAN', 'MI', 'EWS', 'TFWS')
+                AND (:is_pwd = TRUE OR rc.code NOT LIKE 'PWD%')
+                AND (:is_defense = TRUE OR rc.code NOT LIKE 'DEF%')
+                AND (rc.code NOT LIKE '%ORPHAN%')
+                AND (:is_female = TRUE OR rc.code NOT LIKE 'L%')
+            )
+            OR (:is_tfws = TRUE AND cg.code = 'TFWS' AND :category_q = 'TFWS')
+            OR (:is_ews = TRUE AND cg.code = 'EWS' AND :category_q = 'EWS')
+            OR (:has_minority = TRUE AND cg.code = 'MI' AND :category_q = 'MI')
+    ),
+    exists_male_standard AS (
+        SELECT DISTINCT cr.college_id
+        FROM cutoff_records cr
+        JOIN raw_categories rc ON cr.raw_category_id = rc.id
+        JOIN category_groups cg ON rc.group_id = cg.id
+        WHERE cg.code = 'OPEN' 
+          AND rc.code NOT LIKE 'L%'
+          AND rc.code NOT LIKE 'PWD%'
+          AND rc.code NOT LIKE 'DEF%'
+    )
+    SELECT 
+        c.cap_code as college_code,
+        c.canonical_name as college_name,
+        b.canonical_name as branch_name,
+        city.name as city,
+        d.name as college_district,
+        rc_cte.raw_category_code,
+        'NO_CATEGORY_HISTORY' as data_availability_status,
+        'This branch is active but has no past cutoff data for ' || :category_q || ' category.' as availability_message,
+        :category_q as selected_category
+    FROM active_branches ab
+    JOIN colleges c ON ab.college_id = c.id
+    JOIN branches b ON ab.branch_id = b.id
+    JOIN localities loc ON c.locality_id = loc.id
+    JOIN cities city ON loc.city_id = city.id
+    JOIN districts d ON city.district_id = d.id
+    JOIN regions r ON d.region_id = r.id
+    LEFT JOIN cutoff_records cr 
+           ON ab.college_id = cr.college_id 
+          AND ab.branch_id = cr.branch_id
+    LEFT JOIN requested_category rc_cte
+           ON cr.raw_category_id = rc_cte.cat_id
+    WHERE ab.branch_id IN (SELECT branch_id FROM requested_branch)
+      AND (:district IS NULL OR d.name ILIKE :district)
+      AND (:city IS NULL OR city.name ILIKE :city)
+      AND (:locality IS NULL OR loc.name ILIKE :locality)
+      AND (:region IS NULL OR r.name ILIKE :region)
+      AND (:autonomous_only = FALSE OR c.is_autonomous = TRUE)
+      AND (:government_only = FALSE OR c.institution_type IN ('Government', 'Government-Aided', 'University Dept'))
+      AND (:is_male = FALSE OR ab.college_id IN (SELECT college_id FROM exists_male_standard))
+      AND (rc_cte.raw_category_code IS NULL OR rc_cte.raw_category_code NOT LIKE '%MI%' OR c.minority_type = :user_minority_type)
+    """
+
+    params = {
+        "branch": branch if branch else "Any",
+        "branch_q": f"%{branch}%" if branch and branch != "Any" else "%",
+        "category_q": category,
+        "is_pwd": is_pwd,
+        "is_defense": is_defense,
+        "is_female": (gender == "Female"),
+        "is_male": (gender == "Male"),
+        "is_tfws": is_tfws,
+        "is_ews": is_ews,
+        "has_minority": minority_type != "Not Applicable",
+        "user_minority_type": minority_type,
+        "district": f"%{district}%" if district else None,
+        "city": f"%{city_name}%" if city_name else None,
+        "locality": f"%{locality}%" if locality else None,
+        "region": f"%{region}%" if region else None,
+        "autonomous_only": autonomous_only,
+        "government_only": government_only
+    }
+
+    with engine.connect() as conn:
+        df = pd.read_sql(text(query), conn, params=params)
+    
+    if df.empty:
+        return pd.DataFrame()
+        
+    df['college_university'] = df['college_district'].apply(get_home_university)
+    
+    if user_university is not None:
+        def is_valid_seat(row):
+            code = row['raw_category_code']
+            if pd.isna(code):
+                return True
+            if code.endswith('S') or code in ('TFWS', 'EWS', 'MI', 'ORPHAN') or 'AI' in code:
+                return True
+            if code.endswith('H'):
+                return user_university == row['college_university']
+            if code.endswith('O'):
+                return user_university != row['college_university']
+            return True
+            
+        df = df[df.apply(is_valid_seat, axis=1)]
+        
+    if df.empty:
+        return pd.DataFrame()
+        
+    grouped = df.groupby(['college_code', 'college_name', 'branch_name', 'city', 'college_district', 'data_availability_status', 'availability_message', 'selected_category'])['raw_category_code'].apply(lambda x: x.notnull().any()).reset_index()
+    gaps = grouped[grouped['raw_category_code'] == False].drop(columns=['raw_category_code'])
+    return gaps
+

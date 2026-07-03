@@ -87,6 +87,7 @@ class TargetPercentileResponse(BaseModel):
     cutoff_2025: Optional[float] = None
     safety_margin: float
     suggested_target_percentile: float
+    error_message: Optional[str] = None
 
 
 class BranchInfoItem(BaseModel):

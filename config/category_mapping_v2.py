@@ -86,4 +86,5 @@ CATEGORY_MAP = {
 }
 
 
-DISPLAY_CATEGORIES = sorted(CATEGORY_MAP.keys())
+EXCLUDED_DISPLAY = {"EWS", "TFWS", "MI", "ORPHAN"}
+DISPLAY_CATEGORIES = sorted([k for k in CATEGORY_MAP.keys() if k not in EXCLUDED_DISPLAY])

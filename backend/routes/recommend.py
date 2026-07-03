@@ -26,6 +26,7 @@ BUCKET_MAP = {
 }
 
 ADMISSION_CHANCE_BUCKET_MAP = {
+    "VERY HIGH CHANCE": "very_safe",
     "HIGH CHANCE": "safe",
     "POSSIBLE": "moderate",
     "DIFFICULT": "dream",
@@ -64,6 +65,21 @@ def build_reason(row, percentile, chance, cap_round):
     difference_vs_latest = float(percentile) - latest_cutoff
     difference_vs_average = float(percentile) - average_cutoff
 
+    if chance == "VERY HIGH CHANCE":
+        return (
+            f"Your percentile is exceptionally high compared to the latest cutoff. "
+            f"You are extremely safe for this seat based on {cap_text} cutoff trends "
+            "from 2022-2025."
+        )
+
+    # Anomaly text: if they beat the average but missed the latest year spike
+    if difference_vs_latest < 0 and difference_vs_average >= 0:
+        return (
+            "Your percentile is slightly below the latest available cutoff "
+            f"but remains above the historical average. Based on {cap_text} cutoff "
+            "trends from 2022-2025."
+        )
+
     if chance == "HIGH CHANCE":
         return (
             f"Your percentile is {difference_vs_latest:.2f} points above "
@@ -75,13 +91,6 @@ def build_reason(row, percentile, chance, cap_round):
         return (
             f"This branch is currently ambitious based on {cap_text} cutoff trends "
             "from 2022-2025."
-        )
-
-    if difference_vs_latest < 0 and difference_vs_average >= 0:
-        return (
-            "Your percentile is slightly below the latest available cutoff "
-            f"but remains above the historical average. Based on {cap_text} cutoff "
-            "trends from 2022-2025."
         )
 
     if chance == "POSSIBLE":
@@ -103,23 +112,7 @@ def build_reason(row, percentile, chance, cap_round):
 
 
 def admission_chance(row, percentile):
-    difference_vs_latest = float(percentile) - float(row["latest_available_cutoff"])
-    difference_vs_average = float(percentile) - float(row["average_cutoff"])
-    if difference_vs_latest < 0:
-        if difference_vs_latest >= -2:
-            return "POSSIBLE"
-        return "DIFFICULT"
-
-    if difference_vs_average < -2:
-        return "POSSIBLE"
-
-    confidence = clean_text(row["confidence_level"])
-    confidence = clean_text(confidence)
-    if confidence in {"VERY SAFE", "SAFE"}:
-        return "HIGH CHANCE"
-    if confidence == "MODERATE":
-        return "POSSIBLE"
-    return "DIFFICULT"
+    return clean_text(row.get("confidence_level", "DIFFICULT"))
 
 
 def availability_label(status):
@@ -198,7 +191,10 @@ def get_recommendations(request: RecommendationRequest):
             request.is_defense,
             request.government_only,
             request.autonomous_only,
-            request.minority_allowed,
+            request.home_district,
+            request.is_tfws,
+            request.is_ews,
+            request.minority_type,
             request.region,
             request.show_all_matches
         )
@@ -213,6 +209,13 @@ def get_recommendations(request: RecommendationRequest):
             autonomous_only=request.autonomous_only,
             minority_allowed=request.minority_allowed,
             region=request.region,
+            gender=request.gender,
+            is_pwd=request.is_pwd,
+            is_defense=request.is_defense,
+            is_tfws=request.is_tfws,
+            is_ews=request.is_ews,
+            minority_type=request.minority_type,
+            home_district=request.home_district
         )
 
     except ValueError as exc:
@@ -253,6 +256,13 @@ def get_recommendations(request: RecommendationRequest):
             row_to_unavailable_item(row)
             for _, row in gaps.iterrows()
         ]
+
+    # Limit standard recommendation buckets if show_all_matches is false
+    if not request.show_all_matches:
+        for bucket in ["very_safe", "safe", "moderate"]:
+            response[bucket] = response[bucket][:20]
+        # For the dream bucket, we want the *easiest* dreams, which are at the end of the descending-sorted list!
+        response["dream"] = response["dream"][-20:] if len(response["dream"]) > 20 else response["dream"]
 
     total_rows = sum(
         len(response[key])

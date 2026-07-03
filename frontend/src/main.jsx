@@ -22,6 +22,7 @@ function resolveApiBaseUrl() {
 const API_BASE_URL = resolveApiBaseUrl();
 
 const RECOMMENDED_BUCKETS = [
+  { chance: "VERY HIGH CHANCE", label: "VERY HIGH CHANCE" },
   { chance: "HIGH CHANCE", label: "HIGH CHANCE" },
   { chance: "POSSIBLE", label: "POSSIBLE" },
 ];
@@ -88,11 +89,7 @@ function CareerMatchPage() {
     fetchJson("/career-quiz/questions")
       .then((data) => {
         setQuestions(data.questions || []);
-        const initialAnswers = {};
-        (data.questions || []).forEach((question) => {
-          initialAnswers[question.id] = 3;
-        });
-        setAnswers(initialAnswers);
+        setAnswers({}); // Do not pre-fill to allow progress bar to work
       })
       .catch((err) => setError(err.message));
   }, []);
@@ -102,7 +99,12 @@ function CareerMatchPage() {
     setLoading(true);
     setError("");
     try {
-      const data = await postJson("/career-quiz", { answers });
+      // Default untouched sliders to neutral (3)
+      const submitAnswers = {};
+      questions.forEach(q => {
+        submitAnswers[q.id] = answers[q.id] !== undefined ? answers[q.id] : 3;
+      });
+      const data = await postJson("/career-quiz", { answers: submitAnswers });
       setResults(data.results || []);
     } catch (err) {
       setError(err.message);
@@ -145,7 +147,7 @@ function CareerMatchPage() {
           ))}
         </div>
 
-        <button className="primary-button" type="submit" disabled={loading || questions.length === 0}>
+        <button className="primary-button" type="submit" disabled={loading || questions.length === 0 || answeredCount === 0}>
           {loading ? "Matching..." : "Show Branch Matches"}
         </button>
       </form>
@@ -212,7 +214,7 @@ function BranchSelect({ value, onChange, groupedBranches }) {
   }, []);
 
   const filteredGroups = useMemo(() => {
-    if (!search) return groupedBranches;
+    if (!search || !groupedBranches) return groupedBranches || {};
     const lowerSearch = search.toLowerCase();
     const result = {};
     for (const [family, branches] of Object.entries(groupedBranches)) {
@@ -284,21 +286,96 @@ function BranchSelect({ value, onChange, groupedBranches }) {
   );
 }
 
+function CustomSelect({ value, onChange, options, placeholder = "Select..." }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = React.useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const displayValue = options.find(opt => (opt.value !== undefined ? opt.value : opt) === value || opt === value);
+  const label = displayValue?.label || displayValue?.value || displayValue || placeholder;
+
+  return (
+    <div className="custom-dropdown" ref={dropdownRef}>
+      <button 
+        type="button" 
+        className="dropdown-trigger" 
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {label}
+        <span className="dropdown-arrow">▼</span>
+      </button>
+
+      {isOpen && (
+        <div className="dropdown-menu">
+          <div className="dropdown-list">
+            {options.map((opt, i) => {
+              const optVal = opt.value !== undefined ? opt.value : opt;
+              const optLabel = opt.label !== undefined ? opt.label : optVal;
+              return (
+                <div 
+                  key={i}
+                  className={`dropdown-option ${value === optVal ? 'selected' : ''}`}
+                  onClick={() => {
+                    onChange(optVal);
+                    setIsOpen(false);
+                  }}
+                >
+                  {optLabel}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToggleSwitch({ checked, onChange, label }) {
+  return (
+    <label className="toggle-switch-container">
+      <div className={`toggle-switch ${checked ? 'on' : 'off'}`}>
+        <input 
+          type="checkbox" 
+          checked={checked} 
+          onChange={(e) => onChange(e.target.checked)} 
+          className="sr-only"
+        />
+        <div className="toggle-knob" />
+      </div>
+      <span className="toggle-label">{label}</span>
+    </label>
+  );
+}
+
 function RecommendationPage() {
   const [metadata, setMetadata] = useState({
     categories: [],
-    groupedBranches: {},
+    homeDistricts: [],
     districts: [],
+    groupedBranches: {},
   });
   const [cities, setCities] = useState([]);
   const [localities, setLocalities] = useState([]);
-  const [branchResults, setBranchResults] = useState([]);
   const [form, setForm] = useState({
     percentile: "95",
     category: "OPEN",
     gender: "Male",
+    homeDistrict: "",
     isPwd: false,
     isDefense: false,
+    isTfws: false,
+    isEws: false,
+    minorityType: "Not Applicable",
     branch: "Computer & IT",
     district: "",
     city: "",
@@ -309,23 +386,32 @@ function RecommendationPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showAllRecommendations, setShowAllRecommendations] = useState(false);
 
   useEffect(() => {
     async function loadMetadata() {
       try {
-        const [categories, groupedBranches, districts] = await Promise.all([
+        const [categories, groupedBranches, districts, homeDistricts] = await Promise.all([
           fetchJson("/categories"),
           fetchJson("/grouped-branches"),
           fetchJson("/districts"),
+          fetchJson("/home-districts"),
         ]);
         setMetadata({
           categories: categories.values || [],
           groupedBranches: groupedBranches || {},
           districts: districts.values || [],
+          homeDistricts: homeDistricts.values || [],
         });
       } catch (err) {
-        setError(err.message);
+        if (err.detail) {
+          if (Array.isArray(err.detail)) {
+            setError(err.detail.map(e => e.msg).join(", "));
+          } else {
+            setError(err.detail);
+          }
+        } else {
+          setError(err.message);
+        }
       }
     }
 
@@ -362,7 +448,6 @@ function RecommendationPage() {
     event.preventDefault();
     setLoading(true);
     setError("");
-    setShowAllRecommendations(false);
 
     try {
       if (!form.capRound) {
@@ -370,11 +455,19 @@ function RecommendationPage() {
         setLoading(false);
         return;
       }
+
+      const parsedPercentile = Number(String(form.percentile).replace(',', '.'));
+      if (isNaN(parsedPercentile) || parsedPercentile < 0 || parsedPercentile > 100) {
+        setError("Please enter a valid CET percentile between 0 and 100.");
+        setLoading(false);
+        return;
+      }
       
       const payload = {
-        percentile: Number(form.percentile),
+        percentile: parsedPercentile,
         category: form.category,
         branch: form.branch,
+        home_district: form.homeDistrict || null,
         district: form.district || null,
         city: form.city || null,
         locality: form.locality || null,
@@ -382,7 +475,11 @@ function RecommendationPage() {
         gender: form.gender,
         is_pwd: form.isPwd,
         is_defense: form.isDefense,
-        show_all_matches: form.showAllMatches,
+        is_tfws: form.isTfws,
+        is_ews: form.isEws,
+        minority_type: form.minorityType,
+        region: form.region || null,
+        show_all_matches: false,
       };
       const data = await postJson("/recommend", payload);
       setResult(data);
@@ -408,14 +505,14 @@ function RecommendationPage() {
     return RESULT_KEYS.flatMap((key) => result[key] || []);
   }, [result]);
 
-  const displayedRecommendations = useMemo(() => {
-    return showAllRecommendations ? allRecommendations : allRecommendations.slice(0, 10);
-  }, [allRecommendations, showAllRecommendations]);
-
   function itemsForChance(chance) {
-    return displayedRecommendations
-      .filter((item) => item.admission_chance === chance)
-      .sort((left, right) => (right.recommendation_score || 0) - (left.recommendation_score || 0));
+    const items = allRecommendations.filter((item) => item.admission_chance === chance);
+    if (chance === "DIFFICULT") {
+      // Sort Dream colleges ascending (easiest/closest dreams first)
+      return items.sort((left, right) => (left.recommendation_score || 0) - (right.recommendation_score || 0));
+    }
+    // Sort realistic options descending (hardest/best colleges first)
+    return items.sort((left, right) => (right.recommendation_score || 0) - (left.recommendation_score || 0));
   }
 
   return (
@@ -429,139 +526,158 @@ function RecommendationPage() {
           Recommendations use historical CAP cutoff data from 2022, 2023, 2024, and 2025.
         </div>
 
-        <button className="primary-button" type="submit" disabled={loading}>
-          {loading ? "Finding..." : "Get Recommendations"}
-        </button>
-
         <label>
           Percentile
           <input
             type="number"
+            step="0.0000001"
             min="0"
             max="100"
-            step="0.01"
             value={form.percentile}
             onChange={(event) => setForm({ ...form, percentile: event.target.value })}
             required
+            placeholder="e.g. 95.5"
+            className="modern-input"
           />
         </label>
 
-        <label>
-          Category
-          <select
+        <div className="field-group">
+          <span>Category</span>
+          <CustomSelect
             value={form.category}
-            onChange={(event) => setForm({ ...form, category: event.target.value })}
-            required
-          >
-            <option value="" disabled>Select Category</option>
-            {metadata.categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={(val) => setForm({ ...form, category: val })}
+            options={metadata.categories.map(c => ({value: c, label: c}))}
+            placeholder="Select Category"
+          />
+        </div>
 
-        <label>
-          Gender
-          <select
+        <div className="field-group">
+          <span>Gender</span>
+          <CustomSelect
             value={form.gender}
-            onChange={(event) => setForm({ ...form, gender: event.target.value })}
-            required
-          >
-            <option value="Male">Male / General</option>
-            <option value="Female">Female</option>
-          </select>
-        </label>
-
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={form.isPwd}
-            onChange={(event) => setForm({ ...form, isPwd: event.target.checked })}
+            onChange={(val) => setForm({ ...form, gender: val })}
+            options={[{value: "Male", label: "Male / General"}, {value: "Female", label: "Female"}]}
+            placeholder="Select Gender"
           />
-          I am a Persons with Disability (PWD) candidate
-        </label>
+        </div>
 
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={form.isDefense}
-            onChange={(event) => setForm({ ...form, isDefense: event.target.checked })}
+        <div className="field-group">
+          <span>Home District (Where you passed 12th)</span>
+          <CustomSelect
+            value={form.homeDistrict}
+            onChange={(val) => setForm({ ...form, homeDistrict: val })}
+            options={[{value: "", label: "Not Applicable"}, ...metadata.homeDistricts.map(d => ({value: d, label: d}))]}
+            placeholder="Select Home District"
           />
-          I am a Defense Quota candidate
-        </label>
+        </div>
 
-        <label>
-          Admission Round *
-          <select
+        <ToggleSwitch
+          checked={form.isPwd}
+          onChange={(val) => setForm({ ...form, isPwd: val })}
+          label="I am a PWD candidate"
+        />
+
+        <ToggleSwitch
+          checked={form.isDefense}
+          onChange={(val) => setForm({ ...form, isDefense: val })}
+          label="I am a Defense candidate"
+        />
+
+        <ToggleSwitch
+          checked={form.isTfws}
+          onChange={(val) => setForm({ ...form, isTfws: val })}
+          label="Applying for TFWS?"
+        />
+
+        {form.category === "OPEN" && (
+          <ToggleSwitch
+            checked={form.isEws}
+            onChange={(val) => setForm({ ...form, isEws: val })}
+            label="Applying for EWS?"
+          />
+        )}
+
+        <div className="field-group">
+          <span>Minority Status</span>
+          <CustomSelect
+            value={form.minorityType}
+            onChange={(val) => setForm({ ...form, minorityType: val })}
+            options={[
+              {value: "Not Applicable", label: "Not Applicable"},
+              {value: "Linguistic (Gujarati)", label: "Linguistic (Gujarati)"},
+              {value: "Linguistic (Hindi)", label: "Linguistic (Hindi)"},
+              {value: "Linguistic (Sindhi)", label: "Linguistic (Sindhi)"},
+              {value: "Linguistic (South Indian)", label: "Linguistic (South Indian)"},
+              {value: "Linguistic (Telugu)", label: "Linguistic (Telugu)"},
+              {value: "Religious (Muslim)", label: "Religious (Muslim)"},
+              {value: "Religious (Christian)", label: "Religious (Christian)"},
+              {value: "Religious (Jain)", label: "Religious (Jain)"}
+            ]}
+            placeholder="Select Minority Type"
+          />
+        </div>
+
+        <div className="field-group">
+          <span>Admission Round *</span>
+          <CustomSelect
             value={form.capRound}
-            onChange={(event) => setForm({ ...form, capRound: event.target.value })}
-            required
-          >
-            <option value="" disabled>Select CAP Round</option>
-            <option value="CAP1">CAP Round 1</option>
-            <option value="CAP2">CAP Round 2</option>
-            <option value="CAP3">CAP Round 3</option>
-            <option value="CAP4">CAP Round 4</option>
-          </select>
-        </label>
+            onChange={(val) => setForm({ ...form, capRound: val })}
+            options={[
+              {value: "CAP1", label: "CAP Round 1"},
+              {value: "CAP2", label: "CAP Round 2"},
+              {value: "CAP3", label: "CAP Round 3"},
+              {value: "CAP4", label: "CAP Round 4"}
+            ]}
+            placeholder="Select CAP Round"
+          />
+        </div>
 
-        <label>
-          Branch Selection
+        <div className="field-group">
+          <span>Branch Selection</span>
           <BranchSelect
             value={form.branch}
             onChange={(val) => setForm({ ...form, branch: val })}
             groupedBranches={metadata.groupedBranches}
           />
-        </label>
+        </div>
 
-        <label>
-          District
-          <select
+        <div className="field-group">
+          <span>District</span>
+          <CustomSelect
             value={form.district}
-            onChange={(event) => setForm({ ...form, district: event.target.value, city: "", locality: "" })}
-          >
-            <option value="">All Maharashtra</option>
-            {metadata.districts.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </label>
+            onChange={(val) => setForm({ ...form, district: val, city: "", locality: "" })}
+            options={[{value: "", label: "All Maharashtra"}, ...metadata.districts.map(d => ({value: d, label: d}))]}
+            placeholder="All Maharashtra"
+          />
+        </div>
 
         {form.district && (
-          <label>
-            City
-            <select
+          <div className="field-group">
+            <span>City</span>
+            <CustomSelect
               value={form.city}
-              onChange={(event) => setForm({ ...form, city: event.target.value, locality: "" })}
-            >
-              <option value="">All Cities in {form.district}</option>
-              {cities.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </label>
+              onChange={(val) => setForm({ ...form, city: val, locality: "" })}
+              options={[{value: "", label: "All Cities"}, ...cities.map(c => ({value: c, label: c}))]}
+              placeholder="All Cities"
+            />
+          </div>
         )}
 
         {form.city && (
-          <label>
-            Locality
-            <select
+          <div className="field-group">
+            <span>Locality</span>
+            <CustomSelect
               value={form.locality}
-              onChange={(event) => setForm({ ...form, locality: event.target.value })}
-            >
-              <option value="">All Localities in {form.city}</option>
-              {localities.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </label>
+              onChange={(val) => setForm({ ...form, locality: val })}
+              options={[{value: "", label: "All Localities"}, ...localities.map(l => ({value: l, label: l}))]}
+              placeholder="All Localities"
+            />
+          </div>
         )}
 
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={form.showAllMatches}
-            onChange={(event) => setForm({ ...form, showAllMatches: event.target.checked })}
-          />
-          Show all matches
-        </label>
-
+        <button className="primary-button" type="submit" disabled={loading} style={{marginTop: "1.5rem"}}>
+          {loading ? "Finding..." : "Get Recommendations"}
+        </button>
       </form>
 
       <div className="results-area">
@@ -581,55 +697,44 @@ function RecommendationPage() {
 
         {result ? (
           <div className="bucket-grid">
-            <div className="result-group">
-              <h3>{showAllRecommendations || allRecommendations.length <= 10 ? "Recommended Colleges" : "Top 10 Recommended Colleges"}</h3>
-              <p className="muted">
-                {allRecommendations.length > 10 && !showAllRecommendations 
-                  ? `Showing 10 of ${allRecommendations.length} recommendations.` 
-                  : "High chance and possible options for your main shortlist."}
-              </p>
-              {RECOMMENDED_BUCKETS.map((bucket) => (
-                <RecommendationBucket
-                  key={bucket.label}
-                  title={bucket.label}
-                  items={itemsForChance(bucket.chance)}
-                  percentile={Number(form.percentile)}
-                  capRound={result.selected_cap_round}
-                />
-              ))}
-            </div>
-            <div className="result-group dream-group">
-              <h3>Dream Colleges</h3>
-              <p className="muted">Ambitious options. Do not rely on these as your main choices.</p>
-              <RecommendationBucket
-                title={DREAM_BUCKET.label}
-                items={itemsForChance(DREAM_BUCKET.chance)}
-                percentile={Number(form.percentile)}
-                capRound={result.selected_cap_round}
-              />
-            </div>
-
-            {allRecommendations.length > 10 && (
-              <div style={{ textAlign: "center", margin: "2rem 0" }}>
-                <button 
-                  className="primary-button" 
-                  type="button"
-                  onClick={() => setShowAllRecommendations(!showAllRecommendations)}
-                >
-                  {showAllRecommendations 
-                    ? "Show Less" 
-                    : `View All Recommendations (${allRecommendations.length})`}
-                </button>
-              </div>
-            )}
-
-            {result.unavailable?.length > 0 && (
-              <DataAvailabilityBucket items={result.unavailable} />
-            )}
-            {totalResults === 0 && (
+            {totalResults === 0 && (!result.unavailable || result.unavailable.length === 0) ? (
               <div className="empty-state">
                 No colleges were found for this exact combination. Try nearby cities or Maharashtra-wide search.
               </div>
+            ) : (
+              <>
+                {totalResults > 0 && (
+                  <>
+                    <div className="result-group">
+                      <h3>Recommended Colleges</h3>
+                      <p className="muted">High chance and possible options for your main shortlist.</p>
+                      {RECOMMENDED_BUCKETS.map((bucket) => (
+                        <RecommendationBucket
+                          key={bucket.label}
+                          title={bucket.label}
+                          items={itemsForChance(bucket.chance)}
+                          percentile={Number(form.percentile)}
+                          capRound={result.selected_cap_round}
+                        />
+                      ))}
+                    </div>
+                    <div className="result-group dream-group">
+                      <h3>Dream Colleges</h3>
+                      <p className="muted">Ambitious options. Do not rely on these as your main choices.</p>
+                      <RecommendationBucket
+                        title={DREAM_BUCKET.label}
+                        items={itemsForChance(DREAM_BUCKET.chance)}
+                        percentile={Number(form.percentile)}
+                        capRound={result.selected_cap_round}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {result.unavailable?.length > 0 && (
+                  <DataAvailabilityBucket items={result.unavailable} />
+                )}
+              </>
             )}
           </div>
         ) : (
@@ -690,79 +795,150 @@ function RecommendationBucket({ title, items, percentile, capRound }) {
   );
 }
 
+function VisualDeltaGauge({ cutoff, studentScore }) {
+  if (cutoff == null || studentScore == null) return null;
+  const isSafe = studentScore >= cutoff;
+  const diff = studentScore - cutoff;
+  const diffText = isSafe ? `+${diff.toFixed(2)}` : `${diff.toFixed(2)}`;
+  
+  const range = 5;
+  let percent = 50 + (diff / range) * 50;
+  if (percent < 0) percent = 0;
+  if (percent > 100) percent = 100;
+
+  return (
+    <div className="delta-gauge-container">
+      <div className="delta-gauge-header">
+        <span className="delta-label">Percentile Gap</span>
+        <span className={`delta-value ${isSafe ? 'safe' : 'danger'}`}>
+          {diffText}
+        </span>
+      </div>
+      <div className="delta-gauge-track">
+        <div className="delta-gauge-target" style={{ left: '50%' }} />
+        <div 
+          className={`delta-gauge-fill ${isSafe ? 'safe' : 'danger'}`} 
+          style={{ 
+            left: isSafe ? '50%' : `${percent}%`,
+            width: isSafe ? `${percent - 50}%` : `${50 - percent}%`
+          }} 
+        />
+        <div 
+          className="delta-gauge-marker"
+          style={{ left: `${percent}%` }}
+        />
+      </div>
+      <div className="delta-gauge-labels">
+        <span>{formatNumber(studentScore)} (You)</span>
+        <span>{formatNumber(cutoff)} (Cutoff)</span>
+      </div>
+    </div>
+  );
+}
+
+function TrendSparkline({ c22, c23, c24, c25 }) {
+  const points = [c22, c23, c24, c25];
+  const max = Math.max(...points.filter(p => p != null && !isNaN(p)).map(p => Number(p)), 1);
+  const min = Math.min(...points.filter(p => p != null && !isNaN(p)).map(p => Number(p)), 100);
+  const range = max - min || 1;
+  
+  return (
+    <div className="sparkline-container">
+      {points.map((p, i) => {
+        const year = 2022 + i;
+        if (p == null) return (
+          <div key={year} className="spark-bar-wrapper">
+            <div className="spark-bar missing" style={{ height: '10%' }} />
+            <span className="spark-label">{year}</span>
+          </div>
+        );
+        const height = (max === min) ? 50 : Math.max(10, ((p - min) / range) * 100);
+        return (
+          <div key={year} className="spark-bar-wrapper">
+            <div className="spark-bar" style={{ height: `${height}%` }}>
+               <span className="spark-tooltip">{formatOptional(p)}</span>
+            </div>
+            <span className="spark-label">{year}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function RecommendationCard({ item, percentile, capRound }) {
   const [showDetails, setShowDetails] = useState(false);
+  const studentScore = item.student_percentile ?? percentile;
+  const cutoff = item.latest_available_cutoff ?? item.average_cutoff;
 
   return (
     <article className="recommendation-card">
-      <h4>{item.college_name}</h4>
-      <p>{item.branch_name}</p>
-      <p className="city-line">{item.city || "Maharashtra"}</p>
-      {capRound && (
-        <div className="selected-cap-round-badge" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
-          Selected Admission Round: {capRound.replace("CAP", "CAP Round ")}
-        </div>
-      )}
-      {item.historical_cutoff_2025 != null && (
-        <div className="fresh-data-badge">Latest CAP Data Available</div>
-      )}
-      <dl>
-        <div>
-          <dt>{item.historical_cutoff_2025 == null ? "Latest Available Cutoff" : "Latest Available Cutoff (2025)"}</dt>
-          <dd>{formatOptional(item.latest_available_cutoff)}</dd>
-        </div>
-        <div>
-          <dt>Historical Average (2022-2025)</dt>
-          <dd>{formatOptional(item.average_cutoff)}</dd>
-        </div>
-        <div>
-          <dt>Your Percentile</dt>
-          <dd>{formatNumber(item.student_percentile ?? percentile)}</dd>
-        </div>
-      </dl>
-      <div className={`chance-pill ${chanceClass(item.admission_chance)}`}>
-        {item.admission_chance}
+      <div className="card-header-row">
+         <h4>{item.college_name}</h4>
+         <div className={`chance-pill ${chanceClass(item.admission_chance)}`}>
+           {item.admission_chance}
+         </div>
       </div>
+      <p className="branch-name">{item.branch_name}</p>
+      <p className="city-line">{item.city || "Maharashtra"}</p>
+      
+      <div className="card-badges">
+        {capRound && (
+          <span className="subtle-badge">
+            {capRound.replace("CAP", "Round ")}
+          </span>
+        )}
+        {item.historical_cutoff_2025 != null && (
+          <span className="subtle-badge success-badge">
+            Latest 2025 Data
+          </span>
+        )}
+        {item.autonomous === 'Autonomous' && (
+          <span className="subtle-badge highlight-badge">
+            Autonomous
+          </span>
+        )}
+        {item.college_type && (
+          <span className="subtle-badge neutral-badge">
+            {item.college_type}
+          </span>
+        )}
+      </div>
+
+      <VisualDeltaGauge cutoff={cutoff} studentScore={studentScore} />
+
       {item.recommendation_reason && (
         <p className="reason-text">{item.recommendation_reason}</p>
       )}
+
       <button
         className="details-button"
         type="button"
         onClick={() => setShowDetails(!showDetails)}
       >
-        {showDetails ? "Hide details" : "Show more details"}
+        {showDetails ? "Hide details" : "View trend & details"}
       </button>
+
       {showDetails && (
         <div className="details-panel">
-          <h5>Historical Cutoffs</h5>
-          <div className="trend-strip" aria-label="Historical cutoff trend">
-            <span>2022: {formatOptional(item.historical_cutoff_2022)}</span>
-            <span>2023: {formatOptional(item.historical_cutoff_2023)}</span>
-            <span>2024: {formatOptional(item.historical_cutoff_2024)}</span>
-            <span>2025: {formatOptional(item.historical_cutoff_2025)}</span>
+          <h5>Historical Cutoff Trend</h5>
+          <TrendSparkline 
+            c22={item.historical_cutoff_2022}
+            c23={item.historical_cutoff_2023}
+            c24={item.historical_cutoff_2024}
+            c25={item.historical_cutoff_2025}
+          />
+          
+          <div className="details-metrics">
+            <div>
+              <span className="metric-label">Average (22-25)</span>
+              <span className="metric-value">{formatOptional(item.average_cutoff)}</span>
+            </div>
+            <div>
+              <span className="metric-label">Stability</span>
+              <span className="metric-value">{stabilityText(item.reliability_level)}</span>
+            </div>
           </div>
-          <h5>Historical Data Available</h5>
-          <div className="year-availability" aria-label="Historical data availability">
-            <span className={item.historical_cutoff_2022 == null ? "missing" : ""}>
-              2022 {item.historical_cutoff_2022 == null ? "NA" : "Available"}
-            </span>
-            <span className={item.historical_cutoff_2023 == null ? "missing" : ""}>
-              2023 {item.historical_cutoff_2023 == null ? "NA" : "Available"}
-            </span>
-            <span className={item.historical_cutoff_2024 == null ? "missing" : ""}>
-              2024 {item.historical_cutoff_2024 == null ? "NA" : "Available"}
-            </span>
-            <span className={item.historical_cutoff_2025 == null ? "missing" : ""}>
-              2025 {item.historical_cutoff_2025 == null ? "NA" : "Available"}
-            </span>
-          </div>
-          <p>
-            {item.historical_year_count < 3
-              ? "Limited Historical Data Available"
-              : `Historical Data Stability: ${stabilityText(item.reliability_level)}`}
-          </p>
-          <p>Historical trend: based on CAP cutoff trends from 2022-2025.</p>
         </div>
       )}
     </article>
@@ -770,13 +946,20 @@ function RecommendationCard({ item, percentile, capRound }) {
 }
 
 function TargetPercentilePage() {
-  const [metadata, setMetadata] = useState({ categories: [] });
+  const [metadata, setMetadata] = useState({ categories: [], districts: [], homeDistricts: [] });
   const [collegeResults, setCollegeResults] = useState([]);
   const [branchResults, setBranchResults] = useState([]);
   const [form, setForm] = useState({
     college: "COEP",
     branch: "Computer Engineering",
     category: "OPEN",
+    gender: "Male",
+    homeDistrict: "",
+    isPwd: false,
+    isDefense: false,
+    isTfws: false,
+    isEws: false,
+    minorityType: "Not Applicable",
     safetyMargin: "2",
   });
   const [result, setResult] = useState(null);
@@ -784,8 +967,16 @@ function TargetPercentilePage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchJson("/categories")
-      .then((data) => setMetadata({ categories: data.values || [] }))
+    Promise.all([
+      fetchJson("/categories"),
+      fetchJson("/districts"),
+      fetchJson("/home-districts"),
+    ])
+      .then(([categories, districts, homeDistricts]) => setMetadata({ 
+        categories: categories.values || [],
+        districts: districts.values || [],
+        homeDistricts: homeDistricts.values || [] 
+      }))
       .catch((err) => setError(err.message));
   }, []);
 
@@ -840,6 +1031,13 @@ function TargetPercentilePage() {
         college: form.college,
         branch: form.branch,
         category: form.category,
+        home_district: form.homeDistrict || null,
+        gender: form.gender,
+        is_pwd: form.isPwd,
+        is_defense: form.isDefense,
+        is_tfws: form.isTfws,
+        is_ews: form.isEws,
+        minority_type: form.minorityType,
         safety_margin: Number(form.safetyMargin),
       });
       setResult(data);
@@ -883,7 +1081,10 @@ function TargetPercentilePage() {
               <button
                 key={college.college_code}
                 type="button"
-                onClick={() => setForm({ ...form, college: college.college_name, branch: "" })}
+                onClick={() => {
+                  setForm({ ...form, college: college.college_name, branch: "" });
+                  setCollegeResults([]);
+                }}
               >
                 {college.college_name}
               </button>
@@ -913,7 +1114,10 @@ function TargetPercentilePage() {
               <button
                 key={branch.branch_name}
                 type="button"
-                onClick={() => setForm({ ...form, branch: branch.branch_name })}
+                onClick={() => {
+                  setForm({ ...form, branch: branch.branch_name });
+                  setBranchResults([]);
+                }}
               >
                 {branch.branch_name}
               </button>
@@ -921,21 +1125,81 @@ function TargetPercentilePage() {
           </div>
         )}
 
-        <label>
-          Category
-          <select
+        <div className="field-group">
+          <span>Category</span>
+          <CustomSelect
             value={form.category}
-            onChange={(event) => setForm({ ...form, category: event.target.value })}
-            required
-          >
-            <option value="" disabled>Select Category</option>
-            {metadata.categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={(val) => setForm({ ...form, category: val })}
+            options={metadata.categories.map(c => ({value: c, label: c}))}
+            placeholder="Select Category"
+          />
+        </div>
+
+        <div className="field-group">
+          <span>Gender</span>
+          <CustomSelect
+            value={form.gender}
+            onChange={(val) => setForm({ ...form, gender: val })}
+            options={[{value: "Male", label: "Male / General"}, {value: "Female", label: "Female"}]}
+            placeholder="Select Gender"
+          />
+        </div>
+
+        <div className="field-group">
+          <span>Home District (Where you passed 12th)</span>
+          <CustomSelect
+            value={form.homeDistrict}
+            onChange={(val) => setForm({ ...form, homeDistrict: val })}
+            options={[{value: "", label: "Not Applicable"}, ...metadata.homeDistricts.map(d => ({value: d, label: d}))]}
+            placeholder="Select Home District"
+          />
+        </div>
+
+        <ToggleSwitch
+          checked={form.isPwd}
+          onChange={(val) => setForm({ ...form, isPwd: val })}
+          label="I am a PWD candidate"
+        />
+
+        <ToggleSwitch
+          checked={form.isDefense}
+          onChange={(val) => setForm({ ...form, isDefense: val })}
+          label="I am a Defense candidate"
+        />
+
+        <ToggleSwitch
+          checked={form.isTfws}
+          onChange={(val) => setForm({ ...form, isTfws: val })}
+          label="Applying for TFWS?"
+        />
+
+        {form.category === "OPEN" && (
+          <ToggleSwitch
+            checked={form.isEws}
+            onChange={(val) => setForm({ ...form, isEws: val })}
+            label="Applying for EWS?"
+          />
+        )}
+
+        <div className="field-group">
+          <span>Minority Status</span>
+          <CustomSelect
+            value={form.minorityType}
+            onChange={(val) => setForm({ ...form, minorityType: val })}
+            options={[
+              {value: "Not Applicable", label: "Not Applicable"},
+              {value: "Linguistic (Gujarati)", label: "Linguistic (Gujarati)"},
+              {value: "Linguistic (Hindi)", label: "Linguistic (Hindi)"},
+              {value: "Linguistic (Sindhi)", label: "Linguistic (Sindhi)"},
+              {value: "Linguistic (South Indian)", label: "Linguistic (South Indian)"},
+              {value: "Linguistic (Telugu)", label: "Linguistic (Telugu)"},
+              {value: "Religious (Muslim)", label: "Religious (Muslim)"},
+              {value: "Religious (Christian)", label: "Religious (Christian)"},
+              {value: "Religious (Jain)", label: "Religious (Jain)"}
+            ]}
+            placeholder="Select Minority Type"
+          />
+        </div>
 
         <label>
           Safety Margin
@@ -967,31 +1231,39 @@ function TargetPercentilePage() {
             <p className="eyebrow">{result.category}</p>
             <h3>{result.college_name}</h3>
             <p>{result.branch_name}</p>
-            <dl>
-              <div>
-                <dt>2022 Cutoff</dt>
-                <dd>{formatOptional(result.cutoff_2022)}</dd>
-              </div>
-              <div>
-                <dt>2023 Cutoff</dt>
-                <dd>{formatOptional(result.cutoff_2023)}</dd>
-              </div>
-              <div>
-                <dt>2024 Cutoff</dt>
-                <dd>{formatOptional(result.cutoff_2024)}</dd>
-              </div>
-              <div>
-                <dt>2025 Cutoff</dt>
-                <dd>{formatOptional(result.cutoff_2025)}</dd>
-              </div>
-              <div>
-                <dt>Target</dt>
-                <dd>{formatOptional(result.suggested_target_percentile)}</dd>
-              </div>
-            </dl>
-            <p className="reason-text">
-              Aim near {formatOptional(result.suggested_target_percentile)} percentile for a safer attempt.
-            </p>
+            {result.suggested_target_percentile === 0.0 ? (
+                <div className="alert-warning" style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#fff3cd', color: '#856404', borderRadius: '4px' }}>
+                    <strong>Notice:</strong> {result.error_message || "This specific branch and category combination does not appear to have active seats in the latest admission cycle."}
+                </div>
+            ) : (
+                <>
+                    <dl className="stats-grid" style={{marginTop: '1.5rem'}}>
+                      <div>
+                        <dt>2022 Cutoff</dt>
+                        <dd>{formatOptional(result.cutoff_2022)}</dd>
+                      </div>
+                      <div>
+                        <dt>2023 Cutoff</dt>
+                        <dd>{formatOptional(result.cutoff_2023)}</dd>
+                      </div>
+                      <div>
+                        <dt>2024 Cutoff</dt>
+                        <dd>{formatOptional(result.cutoff_2024)}</dd>
+                      </div>
+                      <div>
+                        <dt>2025 Cutoff</dt>
+                        <dd>{formatOptional(result.cutoff_2025)}</dd>
+                      </div>
+                      <div>
+                        <dt>Target</dt>
+                        <dd>{formatOptional(result.suggested_target_percentile)}</dd>
+                      </div>
+                    </dl>
+                    <p className="reason-text">
+                      Aim near {formatOptional(result.suggested_target_percentile)} percentile for a safer attempt.
+                    </p>
+                </>
+            )}
           </article>
         ) : (
           <div className="empty-state">Enter a college, branch, and category.</div>
@@ -1105,9 +1377,18 @@ async function fetchJson(path) {
       "ngrok-skip-browser-warning": "true",
     },
   });
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch (err) {
+    throw new Error(`Server error (${response.status}): The server encountered an issue and could not return data.`);
+  }
   if (!response.ok) {
-    throw new Error(data.detail || "Request failed");
+    let errorMsg = data.detail || "Request failed";
+    if (Array.isArray(data.detail)) {
+      errorMsg = data.detail.map(e => `${e.loc ? e.loc.join('.') + ': ' : ''}${e.msg}`).join(', ');
+    }
+    throw new Error(errorMsg);
   }
   return data;
 }
@@ -1121,9 +1402,18 @@ async function postJson(path, payload) {
     },
     body: JSON.stringify(payload),
   });
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch (err) {
+    throw new Error(`Server error (${response.status}): The server encountered an issue and could not return data.`);
+  }
   if (!response.ok) {
-    throw new Error(data.detail || "Request failed");
+    let errorMsg = data.detail || "Request failed";
+    if (Array.isArray(data.detail)) {
+      errorMsg = data.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join(', ');
+    }
+    throw new Error(errorMsg);
   }
   return data;
 }
@@ -1140,6 +1430,7 @@ function formatOptional(value) {
 }
 
 function chanceClass(chance) {
+  if (chance === "VERY HIGH CHANCE") return "very-high";
   if (chance === "HIGH CHANCE") return "high";
   if (chance === "POSSIBLE") return "possible";
   return "difficult";
