@@ -259,10 +259,9 @@ main {
   flex-direction: column;
   gap: 20px;
   padding: 24px;
-  padding-bottom: 48px; /* Force extra space at bottom for the button */
   position: sticky;
-  top: 96px;
-  max-height: calc(100vh - 96px);
+  top: 160px; /* Safe distance below the tall sticky topbar */
+  max-height: calc(100vh - 180px); /* Fit exactly in the remaining viewport height */
   overflow-y: auto;
   overscroll-behavior: contain;
 }
