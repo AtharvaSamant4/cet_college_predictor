@@ -1,8 +1,10 @@
 import pandas as pd
 from sqlalchemy import text
+from functools import lru_cache
 from backend.database import engine
 from config.university_mapping import get_home_university
 
+@lru_cache(maxsize=1024)
 def fetch_db_recommendations(percentile, category, branch, district, city_name, locality, cap_round, gender, is_pwd, is_defense, government_only, autonomous_only, home_district, is_tfws, is_ews, minority_type, region, show_all_matches):
     user_university = get_home_university(home_district)
     
