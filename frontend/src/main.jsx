@@ -790,7 +790,31 @@ function RecommendationPage() {
             )}
           </div>
         ) : (
-          <div className="empty-state">No shortlist loaded yet.</div>
+          <div className="engine-welcome-card">
+            <div className="engine-welcome-header">
+              <h3>👋 Welcome to the College Predictor</h3>
+              <p>Fill out your profile on the left to get your personalized shortlist. Here is how our algorithm predicts your chances based on 2022-2025 CAP history:</p>
+            </div>
+            
+            <div className="engine-legend-grid">
+              <div className="legend-item very-high">
+                <div className="legend-badge">🟢 Very High Chance</div>
+                <p>Your score is at least <strong>+2.0 percentiles above</strong> both the latest cutoff AND the historical average. The algorithm identifies near-zero risk based on 4-year trends. You are extremely safe here.</p>
+              </div>
+              <div className="legend-item high">
+                <div className="legend-badge">🔵 High Chance</div>
+                <p>You comfortably meet or exceed the most recent cutoff. The engine also verifies that there haven't been abnormal spikes in previous years, ensuring a highly probable admission.</p>
+              </div>
+              <div className="legend-item possible">
+                <div className="legend-badge">🟡 Possible</div>
+                <p>You missed the cutoff by <strong>up to 2.0 percentiles</strong>. The algorithm analyzes past data and determines that typical year-over-year fluctuations could still bring this college into your range.</p>
+              </div>
+              <div className="legend-item difficult">
+                <div className="legend-badge">🔴 Difficult (Dream)</div>
+                <p>You missed the cutoff by <strong>more than 2.0 percentiles</strong>. The engine detects that historical trends make admission mathematically improbable. These are ambitious "stretch" options.</p>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </section>

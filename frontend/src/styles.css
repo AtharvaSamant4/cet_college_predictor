@@ -1343,3 +1343,66 @@ dd {
   border-left: 6px solid #ef4444;
 }
 .recommendation-card.difficult:hover { opacity: 1; transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+
+
+/* --- ENGINE WELCOME CARD (EMPTY STATE) --- */
+.engine-welcome-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+  padding: 32px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.engine-welcome-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.engine-welcome-header h3 {
+  font-size: 1.5rem;
+  color: var(--text-dark);
+  margin: 0 0 12px 0;
+}
+.engine-welcome-header p {
+  color: var(--text-gray);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.engine-legend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+.legend-item {
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: #f8fafc;
+}
+.legend-item.very-high { background: #ecfdf5; border-color: #a7f3d0; }
+.legend-item.high { background: #eff6ff; border-color: #bfdbfe; }
+.legend-item.possible { background: #fffbeb; border-color: #fde68a; }
+.legend-item.difficult { background: #fef2f2; border-color: #fecaca; }
+
+.legend-badge {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.legend-item.very-high .legend-badge { color: #065f46; }
+.legend-item.high .legend-badge { color: #1e3a8a; }
+.legend-item.possible .legend-badge { color: #92400e; }
+.legend-item.difficult .legend-badge { color: #991b1b; }
+
+.legend-item p {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0;
+  color: var(--text-gray);
+}
