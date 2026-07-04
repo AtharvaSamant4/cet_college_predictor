@@ -436,29 +436,8 @@ select:focus {
   min-width: 0;
 }
 
-.bucket-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
 
-.bucket-title h3 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
 
-.bucket-title span {
-  min-width: 24px;
-  padding: 2px 8px;
-  text-align: center;
-  color: var(--zinc-700);
-  background: var(--zinc-200);
-  border-radius: 9999px;
-  font-weight: 600;
-  font-size: 0.75rem;
-}
 
 .warning-title h3 {
   color: var(--warning-text);
@@ -1322,3 +1301,45 @@ dd {
   border-width: 0;
 }
 
+
+
+/* --- CATEGORY VISUAL DIFFERENTIATION --- */
+/* Sticky Headers */
+.bucket-section { margin-bottom: 48px; }
+.bucket-title {
+  position: sticky;
+  top: 150px;
+  z-index: 40;
+  padding: 12px 24px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+.bucket-title h3 { margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+.bucket-title span { font-size: 0.85rem; font-weight: 600; padding: 2px 8px; border-radius: 12px; background: rgba(0,0,0,0.05); }
+
+/* Bucket Themes */
+.bucket-section.very-high .bucket-title { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.bucket-section.high .bucket-title { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }
+.bucket-section.possible .bucket-title { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.bucket-section.difficult .bucket-title { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+
+/* Card Border Accents */
+.recommendation-card { border-left: 6px solid var(--border-light); }
+.recommendation-card.very-high { border-left-color: #10b981; }
+.recommendation-card.high { border-left-color: #3b82f6; }
+.recommendation-card.possible { border-left-color: #f59e0b; }
+.recommendation-card.difficult { 
+  border-left-color: #ef4444; 
+  background: #fafafa;
+  opacity: 0.95;
+  box-shadow: none;
+  border: 1px dashed #e5e7eb;
+  border-left: 6px solid #ef4444;
+}
+.recommendation-card.difficult:hover { opacity: 1; transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }

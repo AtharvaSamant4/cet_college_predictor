@@ -823,11 +823,19 @@ function DataAvailabilityBucket({ items }) {
 }
 
 function RecommendationBucket({ title, items, percentile, capRound }) {
+  const bucketClass = chanceClass(title);
+  
+  let Icon = "";
+  if (bucketClass === "very-high") Icon = "🟢";
+  if (bucketClass === "high") Icon = "🔵";
+  if (bucketClass === "possible") Icon = "🟡";
+  if (bucketClass === "difficult") Icon = "🔴";
+
   return (
-    <section className="bucket-section">
+    <section className={`bucket-section ${bucketClass}`}>
       <div className="bucket-title">
-        <h3>{title}</h3>
-        <span>{items.length}</span>
+        <h3>{Icon} {title}</h3>
+        <span>{items.length} Matches</span>
       </div>
       <div className="card-list">
         {items.length === 0 ? (
@@ -922,12 +930,13 @@ function RecommendationCard({ item, percentile, capRound }) {
   const [showDetails, setShowDetails] = useState(false);
   const studentScore = item.student_percentile ?? percentile;
   const cutoff = item.latest_available_cutoff ?? item.average_cutoff;
+  const cardClass = chanceClass(item.admission_chance);
 
   return (
-    <article className="recommendation-card">
+    <article className={`recommendation-card ${cardClass}`}>
       <div className="card-header-row">
          <h4>{item.college_name}</h4>
-         <div className={`chance-pill ${chanceClass(item.admission_chance)}`}>
+         <div className={`chance-pill ${cardClass}`}>
            {item.admission_chance}
          </div>
       </div>
