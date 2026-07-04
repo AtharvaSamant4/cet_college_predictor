@@ -21,6 +21,18 @@ function resolveApiBaseUrl() {
 
 const API_BASE_URL = resolveApiBaseUrl();
 
+function CortxBranding() {
+  return (
+    <div className="startup-branding">
+      <div className="startup-logo">⚡</div>
+      <div className="startup-text">
+        <p className="branding-name">© {new Date().getFullYear()} CortX Labs</p>
+        <p className="branding-dept">Dept. of CSE (AI &amp; ML)</p>
+      </div>
+    </div>
+  );
+}
+
 const RECOMMENDED_BUCKETS = [
   { chance: "VERY HIGH CHANCE", label: "VERY HIGH CHANCE" },
   { chance: "HIGH CHANCE", label: "HIGH CHANCE" },
@@ -50,22 +62,25 @@ function App() {
             CAP round dynamics, and applicant competition.
           </p>
         </div>
-        <nav className="nav-tabs" aria-label="Primary">
-          {[
-            ["recommend", "Recommend"],
-            ["career", "Career Match"],
-            ["target", "Target"],
-            ["explore", "Explore Branches"],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              className={activePage === key ? "active" : ""}
-              onClick={() => setActivePage(key)}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
+        <div className="topbar-right">
+          <nav className="nav-tabs" aria-label="Primary">
+            {[
+              ["recommend", "Recommend"],
+              ["career", "Career Match"],
+              ["target", "Target"],
+              ["explore", "Explore Branches"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                className={activePage === key ? "active" : ""}
+                onClick={() => setActivePage(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <CortxBranding />
+        </div>
       </header>
 
       <main>
